@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useSocket } from '../contexts/SocketContext'
 import FileUpload from '../components/FileUpload'
+import FileSearch from '../components/FileSearch'
+import EmailTest from '../components/EmailTest'
 
 interface Item {
   id: number
@@ -294,6 +296,18 @@ const Dashboard = () => {
       <div className="card">
         <h2>File Upload</h2>
         <FileUpload />
+      </div>
+
+      {/* File search section */}
+      <div className="card">
+        <h2>Advanced File Search</h2>
+        <FileSearch />
+      </div>
+
+      {/* Email test section */}
+      <div className="card">
+        <h2>Email Notification System</h2>
+        <EmailTest />
       </div>
     </div>
   )

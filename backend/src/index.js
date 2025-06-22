@@ -15,7 +15,10 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import Redis from 'ioredis'
 import amqp from 'amqplib'
+import nodemailer from 'nodemailer'
+import { body, validationResult } from 'express-validator'
 import { authenticateToken, validateRegistration, validateLogin, authRateLimit } from './middleware/auth.js'
+import emailService from './emailService.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -186,12 +189,23 @@ const initDatabase = async () => {
         file_size INTEGER NOT NULL,
         mime_type VARCHAR(100),
         user_id INTEGER REFERENCES users(id),
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        metadata JSONB DEFAULT '{}',
+        content TEXT,
+        tags TEXT[]
       )
     `)
     // Ensure columns exist (for upgrades)
     await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)`)
     await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`)
+    await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'`)
+    await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS content TEXT`)
+    await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS tags TEXT[]`)
+
+    // Create indexes for better performance
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_files_metadata ON files USING GIN (metadata)`)
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_files_tags ON files USING GIN (tags)`)
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_files_content ON files USING GIN (to_tsvector('english', content))`)
 
     // Insert sample data if table is empty
     const result = await pool.query('SELECT COUNT(*) FROM items')
@@ -214,12 +228,17 @@ initDatabase()
 // Authentication routes
 app.post('/api/auth/register', authLimiter, validateRegistration, async (req, res) => {
   try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
     const { name, email, password } = req.body
 
     // Check if user already exists
-    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email])
+    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email])
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({ error: 'User with this email already exists' })
+      return res.status(400).json({ error: 'User already exists' })
     }
 
     // Hash password
@@ -228,7 +247,7 @@ app.post('/api/auth/register', authLimiter, validateRegistration, async (req, re
 
     // Create user
     const result = await pool.query(
-      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, created_at',
+      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
       [name, email, passwordHash]
     )
 
@@ -236,19 +255,28 @@ app.post('/api/auth/register', authLimiter, validateRegistration, async (req, re
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, name: user.name },
       JWT_SECRET,
       { expiresIn: '24h' }
     )
 
+    // Send welcome email notification
+    try {
+      await emailService.sendWelcomeEmail(email, name)
+      console.log(`Welcome email sent to ${email}`)
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError)
+      // Don't fail the registration if email fails
+    }
+
     res.status(201).json({
       message: 'User registered successfully',
+      token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email
-      },
-      token
+      }
     })
   } catch (error) {
     console.error('Registration error:', error)
@@ -518,10 +546,30 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     const { filename, originalname, path: filePath, size, mimetype } = req.file
     const userId = req.user.userId
 
-    // Save file info to database
+    // Extract metadata from request body
+    const metadata = {
+      title: req.body.title || originalname,
+      description: req.body.description || '',
+      author: req.user.name,
+      department: req.body.department || '',
+      approvalStatus: req.body.approvalStatus || 'pending',
+      version: req.body.version || '1.0',
+      category: req.body.category || '',
+      ...req.body.metadata // Allow additional custom metadata
+    }
+
+    // Parse tags from request body
+    const tags = req.body.tags ? 
+      (Array.isArray(req.body.tags) ? req.body.tags : req.body.tags.split(',').map(tag => tag.trim())) : 
+      []
+
+    // Extract content if provided (for text-based files)
+    const content = req.body.content || ''
+
+    // Save file info to database with enhanced metadata
     const result = await pool.query(
-      'INSERT INTO files (filename, original_name, file_path, file_size, mime_type, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [filename, originalname, filePath, size, mimetype, userId]
+      'INSERT INTO files (filename, original_name, file_path, file_size, mime_type, user_id, metadata, content, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [filename, originalname, filePath, size, mimetype, userId, JSON.stringify(metadata), content, tags]
     )
 
     const newFile = result.rows[0]
@@ -536,13 +584,24 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       originalName: originalname,
       size: size,
       mimeType: mimetype,
-      uploadedAt: newFile.uploaded_at
+      uploadedAt: newFile.uploaded_at,
+      metadata: newFile.metadata,
+      tags: newFile.tags
     })
 
     // Publish message to RabbitMQ
     if (rabbitmqChannel) {
       rabbitmqChannel.sendToQueue('app_messages', Buffer.from(JSON.stringify({ type: 'file_uploaded', data: newFile }))) 
       console.log('Message sent to RabbitMQ: file_uploaded', newFile.id)
+    }
+
+    // Send email notification
+    try {
+      await emailService.sendFileUploadedEmail(req.user.email, originalname, req.user.name)
+      console.log(`File upload email sent to ${req.user.email}`)
+    } catch (emailError) {
+      console.error('Failed to send file upload email:', emailError)
+      // Don't fail the upload if email fails
     }
 
     res.status(201).json({
@@ -553,7 +612,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         originalName: originalname,
         size: size,
         mimeType: mimetype,
-        uploadedAt: newFile.uploaded_at
+        uploadedAt: newFile.uploaded_at,
+        metadata: newFile.metadata,
+        tags: newFile.tags
       }
     })
   } catch (error) {
@@ -585,6 +646,161 @@ app.get('/api/files', authenticateToken, async (req, res) => {
     res.json(files)
   } catch (error) {
     console.error('Error fetching files:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Search files by tags (protected)
+app.get('/api/files/search/tags', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { tags } = req.query
+
+    if (!tags) {
+      return res.status(400).json({ error: 'Tags parameter is required' })
+    }
+
+    const tagArray = Array.isArray(tags) ? tags : tags.split(',').map(tag => tag.trim())
+    
+    const result = await pool.query(
+      'SELECT * FROM files WHERE user_id = $1 AND tags && $2 ORDER BY uploaded_at DESC',
+      [userId, tagArray]
+    )
+
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Error searching files by tags:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Search files by metadata (protected)
+app.get('/api/files/search/metadata', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { key, value } = req.query
+
+    if (!key || !value) {
+      return res.status(400).json({ error: 'Key and value parameters are required' })
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM files WHERE user_id = $1 AND metadata->>$2 = $3 ORDER BY uploaded_at DESC',
+      [userId, key, value]
+    )
+
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Error searching files by metadata:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Full-text search in content (protected)
+app.get('/api/files/search/content', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { query } = req.query
+
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter is required' })
+    }
+
+    const result = await pool.query(
+      `SELECT *, ts_rank(to_tsvector('english', content), plainto_tsquery('english', $2)) as rank 
+       FROM files 
+       WHERE user_id = $1 AND content IS NOT NULL AND content != '' 
+       AND to_tsvector('english', content) @@ plainto_tsquery('english', $2)
+       ORDER BY rank DESC, uploaded_at DESC`,
+      [userId, query]
+    )
+
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Error searching files by content:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Get files by department (protected)
+app.get('/api/files/department/:department', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { department } = req.params
+
+    const result = await pool.query(
+      'SELECT * FROM files WHERE user_id = $1 AND metadata->>\'department\' = $2 ORDER BY uploaded_at DESC',
+      [userId, department]
+    )
+
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Error fetching files by department:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Update file metadata (protected)
+app.put('/api/files/:id/metadata', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const userId = req.user.userId
+    const { metadata, tags, content } = req.body
+
+    // Build update query dynamically
+    let updateFields = []
+    let values = [id, userId]
+    let valueIndex = 3
+
+    if (metadata) {
+      updateFields.push(`metadata = $${valueIndex}`)
+      values.push(JSON.stringify(metadata))
+      valueIndex++
+    }
+
+    if (tags) {
+      updateFields.push(`tags = $${valueIndex}`)
+      values.push(Array.isArray(tags) ? tags : tags.split(',').map(tag => tag.trim()))
+      valueIndex++
+    }
+
+    if (content !== undefined) {
+      updateFields.push(`content = $${valueIndex}`)
+      values.push(content)
+      valueIndex++
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' })
+    }
+
+    const result = await pool.query(
+      `UPDATE files SET ${updateFields.join(', ')}, uploaded_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 AND user_id = $2 RETURNING *`,
+      values
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' })
+    }
+
+    const updatedFile = result.rows[0]
+
+    // Invalidate cache for this user's files
+    await redisClient.del(`files:${userId}`)
+
+    // Emit real-time update
+    emitToUser(userId, 'file_updated', updatedFile)
+
+    // Publish message to RabbitMQ
+    if (rabbitmqChannel) {
+      rabbitmqChannel.sendToQueue('app_messages', Buffer.from(JSON.stringify({ type: 'file_updated', data: updatedFile }))) 
+      console.log('Message sent to RabbitMQ: file_updated', updatedFile.id)
+    }
+
+    res.json(updatedFile)
+  } catch (error) {
+    console.error('Error updating file metadata:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
@@ -644,6 +860,70 @@ app.get('/api/rabbitmq-status', async (req, res) => {
     res.json({ status: 'ok', message: 'RabbitMQ connection successful' })
   } else {
     res.status(500).json({ status: 'error', message: 'RabbitMQ connection failed' })
+  }
+})
+
+// Email service endpoints
+app.get('/api/email/status', async (req, res) => {
+  try {
+    const configStatus = emailService.getConfigStatus()
+    const connectionTest = await emailService.testConnection()
+    
+    res.json({
+      configured: configStatus.configured,
+      config: {
+        host: configStatus.host,
+        port: configStatus.port,
+        secure: configStatus.secure,
+        user: configStatus.user
+      },
+      connection: connectionTest
+    })
+  } catch (error) {
+    console.error('Email status check error:', error)
+    res.status(500).json({ error: 'Failed to check email status' })
+  }
+})
+
+app.post('/api/email/test', authenticateToken, async (req, res) => {
+  try {
+    const { to, templateName, data } = req.body
+    
+    if (!to || !templateName) {
+      return res.status(400).json({ error: 'Email address and template name are required' })
+    }
+
+    const result = await emailService.sendEmail(to, templateName, data)
+    
+    if (result.success) {
+      res.json({ message: 'Test email sent successfully', messageId: result.messageId })
+    } else {
+      res.status(500).json({ error: 'Failed to send test email', details: result.error })
+    }
+  } catch (error) {
+    console.error('Test email error:', error)
+    res.status(500).json({ error: 'Failed to send test email' })
+  }
+})
+
+app.post('/api/email/system-alert', authenticateToken, async (req, res) => {
+  try {
+    const { alertType, message, adminEmail } = req.body
+    
+    if (!alertType || !message || !adminEmail) {
+      return res.status(400).json({ error: 'Alert type, message, and admin email are required' })
+    }
+
+    const result = await emailService.sendSystemAlert(adminEmail, alertType, message)
+    
+    if (result.success) {
+      res.json({ message: 'System alert sent successfully', messageId: result.messageId })
+    } else {
+      res.status(500).json({ error: 'Failed to send system alert', details: result.error })
+    }
+  } catch (error) {
+    console.error('System alert error:', error)
+    res.status(500).json({ error: 'Failed to send system alert' })
   }
 })
 

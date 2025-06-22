@@ -38,11 +38,43 @@ body, html, #root {
     gap: 1rem;
     align-items: flex-start;
   }
+  .status-group {
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0.5rem 0.25rem;
+  }
+  .card {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  .dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+  .status-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .connection-status,
+  .cache-status,
+  .rabbitmq-status {
+    font-size: 0.8rem;
+  }
+  .items-list {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 
 .navbar {
   background-color: #1a1a1a;
-  padding: 1rem 0;
+  padding: 1rem;
   border-bottom: 1px solid #333;
 }
 
@@ -64,6 +96,43 @@ body, html, #root {
 
 .navbar-nav a:hover {
   color: #646cff;
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0.75rem;
+  }
+  .navbar-nav {
+    gap: 1rem;
+  }
+  .navbar > div {
+    flex-wrap: wrap;
+    gap: 1rem !important;
+  }
+  .navbar > div > div {
+    gap: 0.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .navbar-nav {
+    gap: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .navbar > div {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem !important;
+    width: 100%;
+  }
+  .navbar > div > div {
+    text-align: center;
+  }
 }
 
 .card {
@@ -89,6 +158,14 @@ body, html, #root {
   gap: 1rem;
   justify-content: center;
   margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .button-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 
 /* Authentication Styles */
@@ -99,6 +176,14 @@ body, html, #root {
   background-color: #1a1a1a;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 480px) {
+  .auth-form {
+    padding: 1.5rem;
+    margin: 0 0.5rem;
+    max-width: none;
+  }
 }
 
 .auth-form h2 {
@@ -125,6 +210,14 @@ body, html, #root {
   background-color: #2a2a2a;
   color: white;
   font-size: 1rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .form-group input {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
 }
 
 .form-group input:focus {
@@ -144,6 +237,14 @@ body, html, #root {
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .auth-button {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
 }
 
 .auth-button:hover:not(:disabled) {
@@ -186,6 +287,13 @@ body, html, #root {
   transition: background-color 0.3s ease;
 }
 
+@media (max-width: 480px) {
+  .logout-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}
+
 .logout-button:hover {
   background-color: #cc3333;
 }
@@ -201,32 +309,42 @@ body, html, #root {
 
 /* File Upload Styles */
 .file-upload {
-  text-align: left;
+  margin: 2rem 0;
 }
 
 .upload-area {
-  border: 2px dashed #666;
+  border: 2px dashed #646cff;
   border-radius: 8px;
-  padding: 2rem;
+  padding: 3rem 2rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin: 1rem 0;
+  background-color: #1a1a1a;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 480px) {
+  .upload-area {
+    padding: 2rem 1rem;
+    margin-bottom: 1.5rem;
+  }
 }
 
 .upload-area:hover {
-  border-color: #646cff;
-  background-color: rgba(100, 108, 255, 0.1);
+  border-color: #535bf2;
+  background-color: #1f1f1f;
 }
 
 .upload-area.drag-active {
-  border-color: #646cff;
-  background-color: rgba(100, 108, 255, 0.2);
+  border-color: #535bf2;
+  background-color: #1f1f1f;
+  transform: scale(1.02);
 }
 
 .upload-label {
   cursor: pointer;
-  display: block;
+  color: #646cff;
+  font-weight: 500;
 }
 
 .uploaded-files {
@@ -236,12 +354,20 @@ body, html, #root {
 .file-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 1rem;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  margin-bottom: 1rem;
   border: 1px solid #333;
-  border-radius: 4px;
-  margin: 0.5rem 0;
-  background-color: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 480px) {
+  .file-item {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
 }
 
 .file-info {
@@ -250,27 +376,181 @@ body, html, #root {
 }
 
 .file-name {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
+  font-weight: 600;
+  color: #646cff;
+  margin-bottom: 0.5rem;
 }
 
 .file-details {
-  font-size: 0.8em;
   color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.file-description {
+  color: #ccc;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.file-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tag {
+  background-color: #646cff;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .download-link {
-  color: #646cff;
+  background-color: #646cff;
+  color: white;
   text-decoration: none;
   padding: 0.5rem 1rem;
-  border: 1px solid #646cff;
-  border-radius: 4px;
-  transition: all 0.3s ease;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .download-link {
+    text-align: center;
+    padding: 0.75rem 1rem;
+  }
 }
 
 .download-link:hover {
-  background-color: #646cff;
+  background-color: #535bf2;
+}
+
+/* Metadata Form Styles */
+.metadata-form {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #333;
+}
+
+@media (max-width: 480px) {
+  .metadata-form {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.metadata-form h4 {
+  color: #646cff;
+  margin-bottom: 1rem;
+}
+
+.metadata-form p {
+  color: #ccc;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+  background-color: #2a2a2a;
+  border-radius: 4px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.metadata-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.metadata-form .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.metadata-form .form-group input,
+.metadata-form .form-group textarea,
+.metadata-form .form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background-color: #2a2a2a;
   color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.metadata-form .form-group input:focus,
+.metadata-form .form-group textarea:focus,
+.metadata-form .form-group select:focus {
+  outline: none;
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.metadata-form .form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.metadata-form .form-group select {
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-start;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.cancel-button {
+  background-color: #666;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.cancel-button:hover {
+  background-color: #555;
+}
+
+@media (max-width: 480px) {
+  .cancel-button {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
 }
 
 /* Dashboard Styles */
@@ -331,6 +611,15 @@ body, html, #root {
   font-size: 1rem;
   min-height: 80px;
   resize: vertical;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .item-form textarea {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+    min-height: 70px;
+  }
 }
 
 .item-form input:focus,
@@ -399,6 +688,14 @@ body, html, #root {
   gap: 0.5rem;
   margin-top: 1rem;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .item-actions {
+    justify-content: center;
+    gap: 0.75rem;
+  }
 }
 
 .edit-button,
@@ -410,6 +707,16 @@ body, html, #root {
   font-size: 0.85rem;
   font-weight: 500;
   transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .edit-button,
+  .delete-button {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    min-width: 70px;
+  }
 }
 
 .edit-button {
@@ -445,6 +752,15 @@ body, html, #root {
   background-color: #333;
   color: white;
   font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .edit-form input,
+  .edit-form textarea {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
 }
 
 .edit-form input:focus,
@@ -464,6 +780,14 @@ body, html, #root {
   gap: 0.5rem;
   margin-top: 0.8rem;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .edit-actions {
+    justify-content: center;
+    gap: 0.75rem;
+  }
 }
 
 .edit-actions button {
@@ -474,6 +798,15 @@ body, html, #root {
   font-size: 0.85rem;
   font-weight: 500;
   transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .edit-actions button {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    min-width: 70px;
+  }
 }
 
 .edit-actions button:first-child {
@@ -501,4 +834,283 @@ body, html, #root {
 
 .item-card.highlight {
   animation: highlight 1s ease-out;
+}
+
+/* File Search Styles */
+.file-search {
+  margin: 2rem 0;
+}
+
+.search-controls {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #333;
+}
+
+@media (max-width: 480px) {
+  .search-controls {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.search-type-selector {
+  margin-bottom: 1.5rem;
+}
+
+.search-type-selector label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.search-type-selector select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background-color: #2a2a2a;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.search-type-selector select:focus {
+  outline: none;
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.search-input-group {
+  margin-bottom: 1rem;
+}
+
+.search-input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.search-input-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background-color: #2a2a2a;
+  color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.search-input-group input:focus {
+  outline: none;
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.metadata-search {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .metadata-search {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.search-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-start;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .search-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.search-results {
+  margin-top: 2rem;
+}
+
+.search-results h4 {
+  color: #646cff;
+  margin-bottom: 1rem;
+}
+
+.file-content-preview {
+  background-color: #2a2a2a;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #ccc;
+  border-left: 3px solid #646cff;
+}
+
+.no-results {
+  text-align: center;
+  padding: 2rem;
+  color: #888;
+  font-style: italic;
+}
+
+/* Email Test Styles */
+.email-test {
+  margin: 2rem 0;
+}
+
+.email-status-section,
+.email-test-section {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #333;
+}
+
+@media (max-width: 480px) {
+  .email-status-section,
+  .email-test-section {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.email-status-section h4,
+.email-test-section h4 {
+  color: #646cff;
+  margin-bottom: 1rem;
+}
+
+.status-display {
+  margin-top: 1.5rem;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #ccc;
+}
+
+.status-item strong {
+  min-width: 100px;
+}
+
+.config-details {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #2a2a2a;
+  border-radius: 4px;
+}
+
+.config-details h5 {
+  color: #646cff;
+  margin-bottom: 0.5rem;
+}
+
+.config-details ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.config-details li {
+  margin-bottom: 0.25rem;
+  color: #ccc;
+}
+
+.config-details strong {
+  color: #fff;
+}
+
+.test-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .test-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.test-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.test-result.success {
+  background-color: rgba(40, 167, 69, 0.2);
+  border: 1px solid #28a745;
+  color: #28a745;
+}
+
+.test-result.error {
+  background-color: rgba(220, 53, 69, 0.2);
+  border: 1px solid #dc3545;
+  color: #dc3545;
+}
+
+.email-info {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
+  border: 1px solid #333;
+}
+
+@media (max-width: 480px) {
+  .email-info {
+    padding: 1.5rem;
+  }
+}
+
+.email-info h4 {
+  color: #646cff;
+  margin-bottom: 1rem;
+}
+
+.email-info p {
+  color: #ccc;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.email-info ul {
+  color: #ccc;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.email-info li {
+  margin-bottom: 0.5rem;
+}
+
+.email-info strong {
+  color: #fff;
+}
+
+.email-info code {
+  background-color: #2a2a2a;
+  color: #646cff;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
 } 
