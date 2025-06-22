@@ -20,6 +20,7 @@ import { body, validationResult } from 'express-validator'
 import { authenticateToken, validateRegistration, validateLogin, authRateLimit } from './middleware/auth.js'
 import emailService from './emailService.js'
 import prometheusMiddleware from 'express-prometheus-middleware'
+import fetch from 'node-fetch'
 import { 
   register, 
   fileUploadsTotal, 
@@ -913,6 +914,27 @@ app.get('/api/rabbitmq-status', async (req, res) => {
   }
 })
 
+// Grafana status endpoint
+app.get('/api/grafana-status', async (req, res) => {
+  try {
+    const response = await fetch('http://grafana:3000/api/health')
+    if (response.ok) {
+      const data = await response.json()
+      res.json({ 
+        status: 'ok', 
+        message: 'Grafana is running',
+        version: data.version,
+        database: data.database
+      })
+    } else {
+      res.status(500).json({ status: 'error', message: 'Grafana health check failed' })
+    }
+  } catch (error) {
+    console.error('Grafana status check error:', error)
+    res.status(500).json({ status: 'error', message: 'Grafana connection failed' })
+  }
+})
+
 // Email service endpoints
 app.get('/api/email/status', async (req, res) => {
   try {
@@ -994,6 +1016,495 @@ app.get('/metrics', async (req, res) => {
   } catch (error) {
     console.error('Metrics error:', error)
     res.status(500).json({ error: 'Failed to get metrics' })
+  }
+})
+
+// ===== NEW COMPREHENSIVE API ENDPOINTS =====
+
+// System overview endpoint
+app.get('/api/system/overview', async (req, res) => {
+  try {
+    const startTime = Date.now()
+    
+    // Get database stats
+    const dbStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as new_users_24h,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 END) as new_users_7d
+      FROM users
+    `)
+    
+    const fileStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_files,
+        COUNT(CASE WHEN uploaded_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as new_files_24h,
+        COUNT(CASE WHEN uploaded_at >= NOW() - INTERVAL '7 days' THEN 1 END) as new_files_7d,
+        SUM(file_size) as total_storage_used,
+        AVG(file_size) as avg_file_size
+      FROM files
+    `)
+    
+    // Get Redis info
+    const redisInfo = await redisClient.info()
+    const redisMemory = await redisClient.info('memory')
+    
+    // Get system memory
+    const memUsage = process.memoryUsage()
+    
+    const overview = {
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      response_time: Date.now() - startTime,
+      database: {
+        total_users: parseInt(dbStats.rows[0].total_users),
+        new_users_24h: parseInt(dbStats.rows[0].new_users_24h),
+        new_users_7d: parseInt(dbStats.rows[0].new_users_7d),
+        total_files: parseInt(fileStats.rows[0].total_files),
+        new_files_24h: parseInt(fileStats.rows[0].new_files_24h),
+        new_files_7d: parseInt(fileStats.rows[0].new_files_7d),
+        total_storage_used: parseInt(fileStats.rows[0].total_storage_used || 0),
+        avg_file_size: parseInt(fileStats.rows[0].avg_file_size || 0)
+      },
+      redis: {
+        connected: redisClient.status === 'ready',
+        memory_usage: parseInt(redisMemory.split('\n').find(line => line.startsWith('used_memory:')).split(':')[1]),
+        info: redisInfo.split('\n').slice(0, 10).join('\n') // First 10 lines
+      },
+      system: {
+        memory: {
+          rss: memUsage.rss,
+          heapTotal: memUsage.heapTotal,
+          heapUsed: memUsage.heapUsed,
+          external: memUsage.external
+        },
+        node_version: process.version,
+        platform: process.platform,
+        arch: process.arch
+      },
+      services: {
+        database: pool.totalCount > 0,
+        redis: redisClient.status === 'ready',
+        rabbitmq: rabbitmqChannel !== null,
+        socket_io: io.engine.clientsCount
+      }
+    }
+    
+    res.json(overview)
+  } catch (error) {
+    console.error('System overview error:', error)
+    res.status(500).json({ error: 'Failed to get system overview' })
+  }
+})
+
+// User analytics endpoint
+app.get('/api/analytics/users', authenticateToken, async (req, res) => {
+  try {
+    // Get user registration trends
+    const registrationTrends = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as registrations
+      FROM users 
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `)
+    
+    // Get user activity (users with files)
+    const activeUsers = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT user_id) as active_users,
+        COUNT(DISTINCT CASE WHEN uploaded_at >= NOW() - INTERVAL '7 days' THEN user_id END) as active_7d,
+        COUNT(DISTINCT CASE WHEN uploaded_at >= NOW() - INTERVAL '24 hours' THEN user_id END) as active_24h
+      FROM files
+    `)
+    
+    // Get top users by file count
+    const topUsers = await pool.query(`
+      SELECT 
+        u.name,
+        u.email,
+        COUNT(f.id) as file_count,
+        SUM(f.file_size) as total_storage
+      FROM users u
+      LEFT JOIN files f ON u.id = f.user_id
+      GROUP BY u.id, u.name, u.email
+      ORDER BY file_count DESC
+      LIMIT 10
+    `)
+    
+    const analytics = {
+      registration_trends: registrationTrends.rows,
+      activity: {
+        total_active_users: parseInt(activeUsers.rows[0].active_users),
+        active_7d: parseInt(activeUsers.rows[0].active_7d),
+        active_24h: parseInt(activeUsers.rows[0].active_24h)
+      },
+      top_users: topUsers.rows
+    }
+    
+    res.json(analytics)
+  } catch (error) {
+    console.error('User analytics error:', error)
+    res.status(500).json({ error: 'Failed to get user analytics' })
+  }
+})
+
+// File analytics endpoint
+app.get('/api/analytics/files', authenticateToken, async (req, res) => {
+  try {
+    // Get file upload trends
+    const uploadTrends = await pool.query(`
+      SELECT 
+        DATE(uploaded_at) as date,
+        COUNT(*) as uploads,
+        SUM(file_size) as total_size
+      FROM files 
+      WHERE uploaded_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(uploaded_at)
+      ORDER BY date DESC
+    `)
+    
+    // Get file types distribution
+    const fileTypes = await pool.query(`
+      SELECT 
+        mime_type,
+        COUNT(*) as count,
+        SUM(file_size) as total_size
+      FROM files
+      GROUP BY mime_type
+      ORDER BY count DESC
+      LIMIT 10
+    `)
+    
+    // Get file size distribution
+    const sizeDistribution = await pool.query(`
+      SELECT 
+        CASE 
+          WHEN file_size < 1024 THEN '0-1KB'
+          WHEN file_size < 10240 THEN '1-10KB'
+          WHEN file_size < 102400 THEN '10-100KB'
+          WHEN file_size < 1048576 THEN '100KB-1MB'
+          WHEN file_size < 10485760 THEN '1-10MB'
+          ELSE '10MB+'
+        END as size_range,
+        COUNT(*) as count
+      FROM files
+      GROUP BY size_range
+      ORDER BY 
+        CASE size_range
+          WHEN '0-1KB' THEN 1
+          WHEN '1-10KB' THEN 2
+          WHEN '10-100KB' THEN 3
+          WHEN '100KB-1MB' THEN 4
+          WHEN '1-10MB' THEN 5
+          ELSE 6
+        END
+    `)
+    
+    // Get metadata usage
+    const metadataUsage = await pool.query(`
+      SELECT 
+        COUNT(*) as files_with_metadata,
+        COUNT(CASE WHEN metadata != '{}' THEN 1 END) as files_with_custom_metadata,
+        COUNT(CASE WHEN tags IS NOT NULL AND array_length(tags, 1) > 0 THEN 1 END) as files_with_tags
+      FROM files
+    `)
+    
+    const analytics = {
+      upload_trends: uploadTrends.rows,
+      file_types: fileTypes.rows,
+      size_distribution: sizeDistribution.rows,
+      metadata_usage: metadataUsage.rows[0]
+    }
+    
+    res.json(analytics)
+  } catch (error) {
+    console.error('File analytics error:', error)
+    res.status(500).json({ error: 'Failed to get file analytics' })
+  }
+})
+
+// System health detailed endpoint
+app.get('/api/system/health', async (req, res) => {
+  try {
+    const health = {
+      timestamp: new Date().toISOString(),
+      status: 'healthy',
+      checks: {}
+    }
+    
+    // Database health check
+    try {
+      const dbCheck = await pool.query('SELECT 1 as health')
+      health.checks.database = {
+        status: 'healthy',
+        response_time: Date.now() - Date.now(),
+        connection_count: pool.totalCount,
+        idle_count: pool.idleCount
+      }
+    } catch (error) {
+      health.checks.database = {
+        status: 'unhealthy',
+        error: error.message
+      }
+      health.status = 'degraded'
+    }
+    
+    // Redis health check
+    try {
+      const startTime = Date.now()
+      await redisClient.ping()
+      const redisInfo = await redisClient.info('memory')
+      const usedMemory = redisInfo.split('\n').find(line => line.startsWith('used_memory:'))
+      health.checks.redis = {
+        status: 'healthy',
+        response_time: Date.now() - startTime,
+        memory_usage: usedMemory ? parseInt(usedMemory.split(':')[1]) : 0,
+        connected_clients: redisClient.status
+      }
+    } catch (error) {
+      health.checks.redis = {
+        status: 'unhealthy',
+        error: error.message
+      }
+      health.status = 'degraded'
+    }
+    
+    // RabbitMQ health check
+    try {
+      if (rabbitmqChannel) {
+        health.checks.rabbitmq = {
+          status: 'healthy',
+          connection_state: 'connected'
+        }
+      } else {
+        health.checks.rabbitmq = {
+          status: 'unhealthy',
+          error: 'Channel not available'
+        }
+        health.status = 'degraded'
+      }
+    } catch (error) {
+      health.checks.rabbitmq = {
+        status: 'unhealthy',
+        error: error.message
+      }
+      health.status = 'degraded'
+    }
+    
+    // System resources
+    const memUsage = process.memoryUsage()
+    const cpuUsage = process.cpuUsage()
+    
+    health.checks.system = {
+      status: 'healthy',
+      memory: {
+        rss: memUsage.rss,
+        heapTotal: memUsage.heapTotal,
+        heapUsed: memUsage.heapUsed,
+        external: memUsage.external,
+        heapUsagePercent: (memUsage.heapUsed / memUsage.heapTotal * 100).toFixed(2)
+      },
+      cpu: {
+        user: cpuUsage.user,
+        system: cpuUsage.system
+      },
+      uptime: process.uptime(),
+      node_version: process.version
+    }
+    
+    res.json(health)
+  } catch (error) {
+    console.error('Health check error:', error)
+    res.status(500).json({ 
+      status: 'unhealthy',
+      error: 'Failed to perform health check',
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
+// Performance metrics endpoint
+app.get('/api/system/performance', async (req, res) => {
+  try {
+    const performance = {
+      timestamp: new Date().toISOString(),
+      metrics: {}
+    }
+    
+    // Database performance
+    const dbPerformance = await pool.query(`
+      SELECT 
+        schemaname,
+        tablename,
+        attname,
+        n_distinct,
+        correlation
+      FROM pg_stats 
+      WHERE schemaname = 'public'
+      LIMIT 20
+    `)
+    
+    // Redis performance
+    const redisStats = await redisClient.info('stats')
+    const redisMemory = await redisClient.info('memory')
+    
+    // System performance
+    const memUsage = process.memoryUsage()
+    const cpuUsage = process.cpuUsage()
+    
+    performance.metrics = {
+      database: {
+        stats: dbPerformance.rows,
+        connection_pool: {
+          total: pool.totalCount,
+          idle: pool.idleCount,
+          waiting: pool.waitingCount
+        }
+      },
+      redis: {
+        stats: redisStats.split('\n').slice(0, 15).join('\n'),
+        memory: redisMemory.split('\n').slice(0, 10).join('\n')
+      },
+      system: {
+        memory_usage: {
+          rss: memUsage.rss,
+          heapTotal: memUsage.heapTotal,
+          heapUsed: memUsage.heapUsed,
+          external: memUsage.external
+        },
+        cpu_usage: {
+          user: cpuUsage.user,
+          system: cpuUsage.system
+        },
+        event_loop_lag: process.hrtime.bigint()
+      }
+    }
+    
+    res.json(performance)
+  } catch (error) {
+    console.error('Performance metrics error:', error)
+    res.status(500).json({ error: 'Failed to get performance metrics' })
+  }
+})
+
+// Search analytics endpoint
+app.get('/api/analytics/search', authenticateToken, async (req, res) => {
+  try {
+    const { type = 'all', limit = 10 } = req.query
+    
+    let searchStats = []
+    
+    if (type === 'all' || type === 'tags') {
+      const tagSearchStats = await pool.query(`
+        SELECT 
+          unnest(tags) as tag,
+          COUNT(*) as usage_count
+        FROM files 
+        WHERE tags IS NOT NULL AND array_length(tags, 1) > 0
+        GROUP BY tag
+        ORDER BY usage_count DESC
+        LIMIT $1
+      `, [limit])
+      searchStats.push({ type: 'tags', data: tagSearchStats.rows })
+    }
+    
+    if (type === 'all' || type === 'metadata') {
+      const metadataSearchStats = await pool.query(`
+        SELECT 
+          jsonb_object_keys(metadata) as metadata_key,
+          COUNT(*) as usage_count
+        FROM files 
+        WHERE metadata != '{}'
+        GROUP BY metadata_key
+        ORDER BY usage_count DESC
+        LIMIT $1
+      `, [limit])
+      searchStats.push({ type: 'metadata', data: metadataSearchStats.rows })
+    }
+    
+    if (type === 'all' || type === 'content') {
+      const contentSearchStats = await pool.query(`
+        SELECT 
+          COUNT(*) as files_with_content,
+          COUNT(CASE WHEN content IS NOT NULL AND content != '' THEN 1 END) as files_with_text_content
+        FROM files
+      `)
+      searchStats.push({ type: 'content', data: contentSearchStats.rows[0] })
+    }
+    
+    res.json({ search_analytics: searchStats })
+  } catch (error) {
+    console.error('Search analytics error:', error)
+    res.status(500).json({ error: 'Failed to get search analytics' })
+  }
+})
+
+// Cache analytics endpoint
+app.get('/api/analytics/cache', async (req, res) => {
+  try {
+    const cacheAnalytics = {
+      timestamp: new Date().toISOString(),
+      redis: {}
+    }
+    
+    // Get Redis info
+    const redisInfo = await redisClient.info()
+    const redisMemory = await redisClient.info('memory')
+    const redisStats = await redisClient.info('stats')
+    
+    // Parse Redis info
+    const infoLines = redisInfo.split('\n')
+    const memoryLines = redisMemory.split('\n')
+    const statsLines = redisStats.split('\n')
+    
+    // Extract key metrics
+    const extractValue = (lines, key) => {
+      const line = lines.find(l => l.startsWith(key + ':'))
+      return line ? line.split(':')[1] : '0'
+    }
+    
+    cacheAnalytics.redis = {
+      version: extractValue(infoLines, 'redis_version'),
+      uptime: extractValue(infoLines, 'uptime_in_seconds'),
+      connected_clients: extractValue(infoLines, 'connected_clients'),
+      used_memory: extractValue(memoryLines, 'used_memory'),
+      used_memory_peak: extractValue(memoryLines, 'used_memory_peak'),
+      total_commands_processed: extractValue(statsLines, 'total_commands_processed'),
+      total_connections_received: extractValue(statsLines, 'total_connections_received'),
+      keyspace_hits: extractValue(statsLines, 'keyspace_hits'),
+      keyspace_misses: extractValue(statsLines, 'keyspace_misses'),
+      hit_rate: (parseInt(extractValue(statsLines, 'keyspace_hits')) / 
+                (parseInt(extractValue(statsLines, 'keyspace_hits')) + 
+                 parseInt(extractValue(statsLines, 'keyspace_misses')))) * 100
+    }
+    
+    res.json(cacheAnalytics)
+  } catch (error) {
+    console.error('Cache analytics error:', error)
+    res.status(500).json({ error: 'Failed to get cache analytics' })
+  }
+})
+
+// Error logs endpoint (last 50 errors)
+app.get('/api/system/errors', authenticateToken, async (req, res) => {
+  try {
+    // This would typically come from a logging system
+    // For now, we'll return a placeholder structure
+    const errorLogs = {
+      timestamp: new Date().toISOString(),
+      total_errors: 0,
+      recent_errors: [],
+      error_types: {},
+      message: 'Error logging system not yet implemented. Consider integrating with Winston or similar logging library.'
+    }
+    
+    res.json(errorLogs)
+  } catch (error) {
+    console.error('Error logs endpoint error:', error)
+    res.status(500).json({ error: 'Failed to get error logs' })
   }
 })
 

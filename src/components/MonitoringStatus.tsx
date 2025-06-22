@@ -43,7 +43,7 @@ const MonitoringStatus: React.FC<MonitoringStatusProps> = ({ className = '' }) =
 
     const checkGrafanaStatus = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/health')
+        const response = await fetch('/api/grafana-status')
         if (response.ok) {
           setGrafanaStatus('up')
         } else {

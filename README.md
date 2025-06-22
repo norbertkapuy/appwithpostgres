@@ -254,7 +254,7 @@ The application includes a comprehensive status monitoring system that displays 
 - **Email Service Status**: SMTP configuration and connectivity
 
 **Status Endpoints**:
-- `GET /api/grafana-status` - Grafana health check (resolves CORS issues)
+- `GET /api/grafana-status` - Grafana health check (backend proxy)
 - `GET /api/db-status` - Database connection status
 - `GET /api/cache-status` - Redis connection status
 - `GET /api/rabbitmq-status` - RabbitMQ connection status
@@ -270,6 +270,157 @@ The backend automatically collects metrics for:
 4. **Service Metrics**: Redis, RabbitMQ, and database operations
 
 **Metrics Endpoint**: http://localhost:5001/metrics
+
+## Advanced Analytics & Monitoring
+
+The application now includes comprehensive analytics and monitoring capabilities that provide deep insights into system performance, user behavior, and resource utilization.
+
+### System Overview Analytics
+
+The `/api/system/overview` endpoint provides a comprehensive snapshot of the entire system:
+
+**Database Analytics:**
+- Total users and new user registrations (24h, 7d)
+- Total files and new file uploads (24h, 7d)
+- Storage usage and average file sizes
+- User activity patterns
+
+**Redis Analytics:**
+- Connection status and memory usage
+- Performance metrics and configuration
+- Cache hit rates and efficiency
+
+**System Resources:**
+- Memory usage (RSS, heap, external)
+- Node.js version and platform info
+- Service connectivity status
+
+### Detailed Health Monitoring
+
+The `/api/system/health` endpoint provides granular health checks:
+
+**Service Health Checks:**
+- Database connection pool status
+- Redis response times and memory usage
+- RabbitMQ connection state
+- System resource utilization
+
+**Performance Metrics:**
+- Response times for each service
+- Memory usage percentages
+- CPU usage statistics
+- Connection pool metrics
+
+### User Analytics
+
+The `/api/analytics/users` endpoint provides detailed user insights:
+
+**Registration Trends:**
+- Daily user registration patterns (30-day history)
+- User growth analysis
+- Registration rate calculations
+
+**Activity Metrics:**
+- Total active users
+- Users active in last 7 days
+- Users active in last 24 hours
+- User engagement patterns
+
+**Top Users Analysis:**
+- Users ranked by file count
+- Storage usage per user
+- Most active users identification
+
+### File Analytics
+
+The `/api/analytics/files` endpoint provides comprehensive file insights:
+
+**Upload Trends:**
+- Daily file upload patterns (30-day history)
+- Upload volume analysis
+- Storage growth tracking
+
+**File Type Distribution:**
+- Most common file types
+- Storage usage by file type
+- File type popularity analysis
+
+**Size Distribution:**
+- Files categorized by size ranges (0-1KB, 1-10KB, etc.)
+- Storage efficiency analysis
+- File size optimization insights
+
+**Metadata Usage:**
+- Files with custom metadata
+- Tag usage statistics
+- Metadata completeness analysis
+
+### Search Analytics
+
+The `/api/analytics/search` endpoint provides search behavior insights:
+
+**Tag Analytics:**
+- Most used tags
+- Tag popularity rankings
+- Tag usage patterns
+
+**Metadata Analytics:**
+- Most common metadata keys
+- Metadata field usage
+- Searchable content analysis
+
+**Content Analytics:**
+- Files with text content
+- Full-text search potential
+- Content completeness metrics
+
+### Cache Performance Analytics
+
+The `/api/analytics/cache` endpoint provides Redis performance insights:
+
+**Redis Metrics:**
+- Version and uptime information
+- Connected clients count
+- Memory usage and peak usage
+- Command processing statistics
+
+**Performance Indicators:**
+- Cache hit rates
+- Keyspace efficiency
+- Connection statistics
+- Memory optimization data
+
+### Performance Monitoring
+
+The `/api/system/performance` endpoint provides detailed performance metrics:
+
+**Database Performance:**
+- PostgreSQL statistics
+- Connection pool efficiency
+- Query performance data
+- Index usage statistics
+
+**System Performance:**
+- Memory usage breakdown
+- CPU utilization
+- Event loop performance
+- Resource allocation
+
+### Error Tracking
+
+The `/api/system/errors` endpoint provides error analytics (placeholder for logging integration):
+
+**Error Analytics:**
+- Total error count
+- Error type distribution
+- Recent error logs
+- Error pattern analysis
+
+**Future Enhancements:**
+- Integration with Winston logging
+- Error alerting system
+- Error trend analysis
+- Performance impact assessment
 
 ## API Endpoints
 
@@ -300,6 +451,18 @@ The backend automatically collects metrics for:
 - `GET /api/grafana-status` - Grafana health check (backend proxy)
 - `GET /api/email/status` - Email service status
 - `GET /metrics` - Prometheus metrics endpoint
+
+### System Analytics & Monitoring
+- `GET /api/system/overview` - Comprehensive system overview with database stats, Redis info, and system metrics
+- `GET /api/system/health` - Detailed health check for all services with response times and resource usage
+- `GET /api/system/performance` - Performance metrics including database stats, Redis performance, and system resources
+- `GET /api/system/errors` - Error logs and system error analytics (placeholder for logging integration)
+
+### User Analytics
+- `GET /api/analytics/users` - User registration trends, activity metrics, and top users by file count
+- `GET /api/analytics/files` - File upload trends, type distribution, size analysis, and metadata usage
+- `GET /api/analytics/search` - Search analytics for tags, metadata, and content usage
+- `GET /api/analytics/cache` - Redis cache performance metrics and hit rates
 
 ### Email Service
 - `POST /api/email/test` - Send test email
@@ -476,7 +639,17 @@ docker-compose up --build -d
 
 ## Recent Updates
 
-### Monitoring Improvements (Latest)
+### Analytics & Monitoring Enhancement (Latest)
+- **Comprehensive Analytics Endpoints**: Added 8 new API endpoints for detailed system analytics
+- **System Overview Dashboard**: Real-time system metrics with database, Redis, and performance data
+- **User Analytics**: Registration trends, activity metrics, and top user analysis
+- **File Analytics**: Upload trends, type distribution, size analysis, and metadata usage
+- **Search Analytics**: Tag usage, metadata patterns, and content analysis
+- **Cache Performance**: Redis metrics, hit rates, and memory optimization data
+- **Health Monitoring**: Detailed health checks with response times and resource usage
+- **Performance Metrics**: Database stats, system resources, and connection pool analytics
+
+### Monitoring Improvements (Previous)
 - **Fixed Grafana Status Monitoring**: Resolved CORS issues with new backend proxy endpoint
 - **Enhanced Status Dashboard**: Real-time monitoring of all services
 - **Improved Error Handling**: Better error reporting and troubleshooting
