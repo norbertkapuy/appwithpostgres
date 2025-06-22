@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Backend API
+  - job_name: 'backend-api'
+    static_configs:
+      - targets: ['backend:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # PostgreSQL (if you want to monitor the database directly)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    # Note: This would require a PostgreSQL exporter
+
+  # Redis (if you want to monitor Redis directly)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    # Note: This would require a Redis exporter
+
+  # RabbitMQ (if you want to monitor RabbitMQ directly)
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15672']
+    metrics_path: '/metrics'
+    # Note: This would require a RabbitMQ exporter 

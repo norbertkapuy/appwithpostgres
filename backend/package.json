@@ -26,7 +26,9 @@
     "socket.io": "^4.7.2",
     "ioredis": "^5.4.1",
     "amqplib": "^0.10.3",
-    "nodemailer": "^6.9.4"
+    "nodemailer": "^6.9.4",
+    "prom-client": "^13.2.0",
+    "express-prometheus-middleware": "^1.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

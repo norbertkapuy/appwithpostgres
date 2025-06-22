@@ -1,0 +1,148 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "App with PostgreSQL Dashboard",
+    "tags": ["app", "postgresql", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{route}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "HTTP Request Duration",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "User Registrations",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "user_registrations_total",
+            "legendFormat": "Total Registrations"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "User Logins",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "user_logins_total{status=\"success\"}",
+            "legendFormat": "Successful Logins"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "File Uploads",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "file_uploads_total",
+            "legendFormat": "Total Uploads"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Active Socket Connections",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "socket_connections",
+            "legendFormat": "Active Connections"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "System Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "system_memory_usage_bytes{type=\"heapUsed\"} / 1024 / 1024",
+            "legendFormat": "Heap Used (MB)"
+          },
+          {
+            "expr": "system_memory_usage_bytes{type=\"rss\"} / 1024 / 1024",
+            "legendFormat": "RSS (MB)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 8,
+        "title": "Email Sent",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "email_sent_total{status=\"success\"}",
+            "legendFormat": "Successful Emails"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12}
+      },
+      {
+        "id": 9,
+        "title": "RabbitMQ Messages",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rabbitmq_messages_total",
+            "legendFormat": "Total Messages"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 12}
+      },
+      {
+        "id": 10,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status_code=~\"5..\"}[5m])",
+            "legendFormat": "5xx Errors"
+          },
+          {
+            "expr": "rate(http_requests_total{status_code=~\"4..\"}[5m])",
+            "legendFormat": "4xx Errors"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+} 

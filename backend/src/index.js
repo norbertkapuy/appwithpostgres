@@ -19,6 +19,20 @@ import nodemailer from 'nodemailer'
 import { body, validationResult } from 'express-validator'
 import { authenticateToken, validateRegistration, validateLogin, authRateLimit } from './middleware/auth.js'
 import emailService from './emailService.js'
+import prometheusMiddleware from 'express-prometheus-middleware'
+import { 
+  register, 
+  fileUploadsTotal, 
+  userRegistrationsTotal, 
+  userLoginsTotal, 
+  databaseQueryDuration, 
+  redisOperationsTotal, 
+  rabbitmqMessagesTotal, 
+  emailSentTotal, 
+  socketConnections, 
+  updateSystemMetrics, 
+  updateSocketMetrics 
+} from './metrics.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -93,6 +107,17 @@ app.use(helmet())
 app.use(cors())
 app.use(morgan('combined'))
 app.use(express.json())
+
+// Prometheus middleware for metrics collection
+app.use(prometheusMiddleware({
+  metricsPath: '/metrics',
+  collectDefaultMetrics: false, // We're using our custom metrics
+  requestDurationBuckets: [0.1, 0.5, 1, 2, 5],
+  requestLengthBuckets: [512, 1024, 5120, 10240, 51200],
+  responseLengthBuckets: [512, 1024, 5120, 10240, 51200],
+  extraMasks: [/^\/api\/.*$/],
+  normalizePath: [['^/api/.*', '/api/#generic']]
+}))
 
 // PostgreSQL connection
 const pool = new Pool({
@@ -264,10 +289,17 @@ app.post('/api/auth/register', authLimiter, validateRegistration, async (req, re
     try {
       await emailService.sendWelcomeEmail(email, name)
       console.log(`Welcome email sent to ${email}`)
+      // Track email metrics
+      emailSentTotal.inc({ template: 'welcome', status: 'success' })
     } catch (emailError) {
       console.error('Failed to send welcome email:', emailError)
+      // Track email metrics
+      emailSentTotal.inc({ template: 'welcome', status: 'error' })
       // Don't fail the registration if email fails
     }
+
+    // Track registration metrics
+    userRegistrationsTotal.inc()
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -291,6 +323,8 @@ app.post('/api/auth/login', authLimiter, validateLogin, async (req, res) => {
     // Find user
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email])
     if (result.rows.length === 0) {
+      // Track failed login
+      userLoginsTotal.inc({ status: 'failed' })
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
@@ -299,6 +333,8 @@ app.post('/api/auth/login', authLimiter, validateLogin, async (req, res) => {
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password_hash)
     if (!isValidPassword) {
+      // Track failed login
+      userLoginsTotal.inc({ status: 'failed' })
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
@@ -308,6 +344,9 @@ app.post('/api/auth/login', authLimiter, validateLogin, async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     )
+
+    // Track successful login
+    userLoginsTotal.inc({ status: 'success' })
 
     res.json({
       message: 'Login successful',
@@ -320,6 +359,8 @@ app.post('/api/auth/login', authLimiter, validateLogin, async (req, res) => {
     })
   } catch (error) {
     console.error('Login error:', error)
+    // Track failed login
+    userLoginsTotal.inc({ status: 'error' })
     res.status(500).json({ error: 'Login failed' })
   }
 })
@@ -574,6 +615,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
     const newFile = result.rows[0]
 
+    // Track file upload metrics
+    fileUploadsTotal.inc({ user_id: userId.toString(), file_type: mimetype })
+
     // Invalidate cache for this user's files
     await redisClient.del(`files:${userId}`)
 
@@ -593,14 +637,20 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     if (rabbitmqChannel) {
       rabbitmqChannel.sendToQueue('app_messages', Buffer.from(JSON.stringify({ type: 'file_uploaded', data: newFile }))) 
       console.log('Message sent to RabbitMQ: file_uploaded', newFile.id)
+      // Track RabbitMQ metrics
+      rabbitmqMessagesTotal.inc({ queue: 'app_messages', action: 'publish' })
     }
 
     // Send email notification
     try {
       await emailService.sendFileUploadedEmail(req.user.email, originalname, req.user.name)
       console.log(`File upload email sent to ${req.user.email}`)
+      // Track email metrics
+      emailSentTotal.inc({ template: 'fileUploaded', status: 'success' })
     } catch (emailError) {
       console.error('Failed to send file upload email:', emailError)
+      // Track email metrics
+      emailSentTotal.inc({ template: 'fileUploaded', status: 'error' })
       // Don't fail the upload if email fails
     }
 
@@ -924,6 +974,26 @@ app.post('/api/email/system-alert', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('System alert error:', error)
     res.status(500).json({ error: 'Failed to send system alert' })
+  }
+})
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    // Update system metrics
+    updateSystemMetrics()
+    
+    // Update socket metrics
+    updateSocketMetrics(io)
+    
+    // Get metrics in Prometheus format
+    const metrics = await register.metrics()
+    
+    res.set('Content-Type', register.contentType)
+    res.end(metrics)
+  } catch (error) {
+    console.error('Metrics error:', error)
+    res.status(500).json({ error: 'Failed to get metrics' })
   }
 })
 

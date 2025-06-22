@@ -1,6 +1,6 @@
 # App with PostgreSQL
 
-A modern full-stack web application built with React, Vite, TypeScript, Node.js, Express, and PostgreSQL, featuring authentication, file upload capabilities, advanced JSONB metadata management, real-time updates, caching, message queuing, and email notifications.
+A modern full-stack web application built with React, Vite, TypeScript, Node.js, Express, and PostgreSQL, featuring authentication, file upload capabilities, advanced JSONB metadata management, real-time updates, caching, message queuing, email notifications, and comprehensive monitoring with Grafana and Prometheus.
 
 ## Features
 
@@ -11,11 +11,11 @@ A modern full-stack web application built with React, Vite, TypeScript, Node.js,
 - **File Upload**: Secure file upload with rich metadata and tagging
 - **Advanced Search**: JSONB-powered search by tags, metadata, and full-text content
 - **Real-time Updates**: Socket.io for instant data synchronization
-- **Caching**: Redis for API response caching
-- **Message Queuing**: RabbitMQ for asynchronous processing
-- **Email Notifications**: Nodemailer-based email system with SMTP support
-- **Docker**: Complete containerization with Docker Compose
-- **Security**: Rate limiting, input validation, secure headers, and comprehensive security measures
+- **Caching**: Redis for improved performance and session management
+- **Message Queuing**: RabbitMQ for reliable message processing
+- **Email Notifications**: Nodemailer-based email service with SMTP support
+- **Monitoring**: Prometheus metrics collection and Grafana dashboards
+- **Containerization**: Docker and Docker Compose for easy deployment
 
 ## Authentication System
 
@@ -163,61 +163,92 @@ CREATE INDEX idx_files_content ON files USING GIN (to_tsvector('english', conten
 
 - Docker and Docker Compose
 - Node.js 18+ (for local development)
+- Git
 
-### 1. Clone the Repository
+### Installation
 
-```bash
-git clone <your-repo-url>
-cd appwithpostgres
-```
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd appwithpostgres
+   ```
 
-### 2. Generate Environment Variables
+2. **Generate environment variables**
+   ```bash
+   chmod +x scripts/generate-env.sh
+   ./scripts/generate-env.sh
+   ```
 
-```bash
-./scripts/generate-env.sh
-```
+3. **Start the application**
+   ```bash
+   docker-compose up -d
+   ```
 
-This creates a `.env` file with secure random values for:
-- Database credentials
-- JWT secret
-- Upload directory
-- File size limits
-- Email configuration
-- Redis and RabbitMQ settings
+4. **Access the application**
+   - **Frontend**: http://localhost
+   - **Backend API**: http://localhost:5001
+   - **Prometheus**: http://localhost:9090
+   - **Grafana**: http://localhost:3000 (admin/admin)
+   - **RabbitMQ Management**: http://localhost:15672 (guest/guest)
+   - **PostgreSQL**: localhost:5432
 
-### 3. Start the Application
+## Monitoring Stack
 
-```bash
-docker-compose up -d
-```
+### Prometheus
 
-The application will be available at:
-- **Frontend**: http://localhost
-- **Backend API**: http://localhost:5001
-- **Database**: localhost:5432
-- **RabbitMQ Management**: http://localhost:15672
+Prometheus is configured to collect metrics from the backend API and provides:
 
-### 4. Access the Application
+- **HTTP Request Metrics**: Request rates, durations, and error rates
+- **Custom Application Metrics**: User registrations, logins, file uploads, email sends
+- **System Metrics**: Memory usage, CPU usage, Socket.io connections
+- **Service Metrics**: Redis operations, RabbitMQ messages, database query durations
 
-1. Open http://localhost in your browser
-2. Register a new account or login with existing credentials
-3. Access the dashboard for file uploads and data management
-4. Use the advanced search features to find files by metadata, tags, or content
-5. Test email notifications through the dashboard
+**Access**: http://localhost:9090
 
-## Development
+**Key Metrics Available**:
+- `http_requests_total` - Total HTTP requests by method, route, and status
+- `http_request_duration_seconds` - Request duration histograms
+- `user_registrations_total` - Total user registrations
+- `user_logins_total` - Login attempts by status (success/failed)
+- `file_uploads_total` - File uploads by user and type
+- `email_sent_total` - Email sends by template and status
+- `socket_connections` - Active Socket.io connections
+- `system_memory_usage_bytes` - Memory usage by type
+- `rabbitmq_messages_total` - RabbitMQ message counts
+- `redis_operations_total` - Redis operation counts
 
-### Local Development
+### Grafana
 
-```bash
-# Install dependencies
-npm install
-cd backend && npm install
+Grafana provides beautiful dashboards for visualizing the collected metrics:
 
-# Start development servers
-npm run dev          # Frontend (Vite)
-cd backend && npm run dev  # Backend (Nodemon)
-```
+- **Pre-configured Dashboard**: "App with PostgreSQL Dashboard" with comprehensive metrics
+- **Real-time Monitoring**: Auto-refreshing dashboards every 10 seconds
+- **Multiple Panels**: HTTP metrics, user activity, system resources, error rates
+
+**Access**: http://localhost:3000
+- **Username**: admin
+- **Password**: Generated automatically (check the output of `generate-env.sh`)
+
+**Dashboard Features**:
+- HTTP Request Rate and Duration graphs
+- User registration and login statistics
+- File upload tracking
+- Active Socket.io connections
+- System memory usage
+- Email delivery statistics
+- RabbitMQ message counts
+- Error rate monitoring
+
+### Metrics Collection
+
+The backend automatically collects metrics for:
+
+1. **HTTP Requests**: Via express-prometheus-middleware
+2. **Custom Business Metrics**: User actions, file operations, email sends
+3. **System Metrics**: Memory usage, Socket.io connections
+4. **Service Metrics**: Redis, RabbitMQ, and database operations
+
+**Metrics Endpoint**: http://localhost:5001/metrics
 
 ## API Endpoints
 
@@ -226,180 +257,201 @@ cd backend && npm run dev  # Backend (Nodemon)
 - `POST /api/auth/login` - User login
 - `GET /api/auth/me` - Get current user info
 
-### Protected Endpoints (require authentication)
-- `GET /api/data` - Get user's items
+### Data Management
+- `GET /api/data` - Get all items
 - `POST /api/data` - Create new item
+- `PUT /api/data/:id` - Update item
+- `DELETE /api/data/:id` - Delete item
+
+### File Management
 - `POST /api/upload` - Upload file with metadata
 - `GET /api/files` - Get user's files
-- `GET /api/files/:filename` - Download file
-- `GET /api/storage/info` - Get storage information
-
-### JSONB Search Endpoints
-- `GET /api/files/search/tags?tags=tag1,tag2` - Search files by tags
-- `GET /api/files/search/metadata?key=department&value=IT` - Search by metadata
-- `GET /api/files/search/content?query=search+term` - Full-text search
-- `GET /api/files/department/:department` - Get files by department
+- `GET /api/files/search/tags` - Search by tags
+- `GET /api/files/search/metadata` - Search by metadata
+- `GET /api/files/search/content` - Full-text search
 - `PUT /api/files/:id/metadata` - Update file metadata
 
-### Email Service Endpoints
-- `GET /api/email/status` - Check email service status
-- `POST /api/email/test` - Send test email
-- `POST /api/email/system-alert` - Send system alert email
-
-### Public Endpoints
-- `GET /api/health` - Health check
+### System Status
+- `GET /api/health` - Backend health check
 - `GET /api/db-status` - Database connection status
-- `GET /api/cache-status` - Redis cache connection status
-- `GET /api/rabbitmq-status` - RabbitMQ message broker connection status
+- `GET /api/cache-status` - Redis connection status
+- `GET /api/rabbitmq-status` - RabbitMQ connection status
+- `GET /api/email/status` - Email service status
+- `GET /metrics` - Prometheus metrics endpoint
 
-## Security Features
-
-- **Password Security**: bcrypt hashing with 10 salt rounds
-- **JWT Tokens**: Secure token-based authentication
-- **Rate Limiting**: Protection against brute force attacks
-- **Input Validation**: Comprehensive validation using express-validator
-- **CORS**: Configured for secure cross-origin requests
-- **Helmet**: Security headers for Express
-- **File Upload Security**: File type validation and size limits
-- **User Isolation**: Users can only access their own data
-- **JSONB Validation**: Input sanitization for metadata fields
-- **Email Security**: SMTP with TLS/SSL encryption
-- **Session Security**: Secure session management with Redis
-- **API Security**: Comprehensive API endpoint protection
-
-## File Upload with Metadata
-
-The application supports secure file uploads with rich metadata:
-
-### Upload Features
-- **File Type Validation**: Only allowed file types (images, documents, etc.)
-- **Size Limits**: Configurable maximum file size (default: 10MB)
-- **User Isolation**: Files are associated with specific users
-- **Secure Storage**: Files stored in Docker volumes
-- **Download Protection**: Users can only download their own files
-- **Email Notifications**: Automatic upload confirmation emails
-
-### Metadata Management
-- **Rich Forms**: Comprehensive upload forms with metadata fields
-- **Tagging System**: Flexible comma-separated tag input
-- **Department Categorization**: Organizational structure support
-- **Version Control**: File versioning capabilities
-- **Approval Workflow**: Status tracking for document approval
-- **Content Extraction**: Text content storage for searchable documents
-
-### Search and Discovery
-- **Tag-based Filtering**: Find files by specific tags
-- **Metadata Queries**: Search by department, category, status, etc.
-- **Full-text Search**: Search within document content
-- **Combined Filters**: Mix different search criteria
-- **Real-time Results**: Instant search results with caching
+### Email Service
+- `POST /api/email/test` - Send test email
+- `POST /api/email/system-alert` - Send system alert
 
 ## Environment Variables
 
-Key environment variables (auto-generated by `generate-env.sh`):
+The application uses the following environment variables (automatically generated):
 
-```env
+```bash
 # Database
-DB_USER=postgres
-DB_PASSWORD=<random-password>
-DB_NAME=appwithpostgres
 DB_HOST=postgres
 DB_PORT=5432
+DB_NAME=appwithpostgres
+DB_USER=postgres
+DB_PASSWORD=<auto-generated>
 
-# JWT
-JWT_SECRET=<random-secret>
+# Security
+JWT_SECRET=<auto-generated>
+SESSION_SECRET=<auto-generated>
 
-# File Upload
-UPLOAD_DIR=/app/uploads
-MAX_FILE_SIZE=10485760
+# Monitoring
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=<auto-generated>
 
-# Server
-PORT=5000
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# RabbitMQ
-RABBITMQ_USER=guest
-RABBITMQ_PASSWORD=guest
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-
-# Email Configuration
-SMTP_HOST=smtp.gmail.com
+# Email (configure as needed)
+SMTP_HOST=localhost
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
+SMTP_USER=noreply@yourdomain.com
+SMTP_PASSWORD=your-smtp-password
 ```
 
-## Docker Configuration
+## Development
 
-The application uses Docker Compose with five services:
+### Local Development
 
-- **frontend**: React app served by Nginx
-- **backend**: Node.js/Express API
-- **postgres**: PostgreSQL database with JSONB support
-- **redis**: Redis caching service
-- **rabbitmq**: RabbitMQ message broker with management UI
+1. **Install dependencies**
+   ```bash
+   npm install
+   cd backend && npm install
+   ```
 
-### Volumes
+2. **Start development servers**
+   ```bash
+   # Frontend
+   npm run dev
+   
+   # Backend
+   cd backend && npm run dev
+   ```
 
-- `postgres_data`: Persistent database storage
-- `uploads`: File upload storage
-- `logs`: Application logs
+3. **Start supporting services**
+   ```bash
+   docker-compose up -d postgres redis rabbitmq prometheus grafana
+   ```
 
-### Health Checks
+### Monitoring Development
 
-- **RabbitMQ**: Automatic health monitoring
-- **Database**: Connection status monitoring
-- **Redis**: Cache service monitoring
-- **Backend**: API health checks
+To add new metrics:
+
+1. **Define metrics in `backend/src/metrics.js`**
+   ```javascript
+   export const newMetric = new promClient.Counter({
+     name: 'new_metric_total',
+     help: 'Description of the metric',
+     labelNames: ['label1', 'label2']
+   })
+   ```
+
+2. **Register the metric**
+   ```javascript
+   register.registerMetric(newMetric)
+   ```
+
+3. **Use the metric in your code**
+   ```javascript
+   newMetric.inc({ label1: 'value1', label2: 'value2' })
+   ```
+
+4. **Add to Grafana dashboard** (optional)
+   - Access Grafana at http://localhost:3000
+   - Edit the dashboard and add new panels
+   - Use PromQL queries to visualize your metrics
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Port Conflicts**: Ensure ports 80, 5001, 5432, 6379, and 5672 are available
-2. **Database Connection**: Check if PostgreSQL container is running
-3. **File Uploads**: Verify upload directory permissions
-4. **Authentication**: Clear browser storage if experiencing login issues
-5. **JSONB Queries**: Ensure PostgreSQL version supports JSONB (9.4+)
-6. **Email Configuration**: Verify SMTP settings in environment variables
-7. **Redis Connection**: Check Redis container status
-8. **RabbitMQ Connection**: Verify RabbitMQ service health
+1. **Prometheus can't connect to backend**
+   - Check if backend is running: `docker-compose logs backend`
+   - Verify metrics endpoint: `curl http://localhost:5001/metrics`
+
+2. **Grafana can't connect to Prometheus**
+   - Check Prometheus targets: http://localhost:9090/targets
+   - Verify datasource configuration in Grafana
+
+3. **Metrics not showing up**
+   - Check backend logs for metric registration errors
+   - Verify Prometheus is scraping the correct endpoint
+   - Check Grafana datasource configuration
+
+4. **Dashboard not loading**
+   - Ensure Grafana has access to Prometheus
+   - Check dashboard JSON configuration
+   - Verify all required metrics are being collected
 
 ### Logs
 
+View logs for specific services:
 ```bash
-# View all logs
-docker-compose logs
-
-# View specific service logs
+# Backend logs
 docker-compose logs backend
-docker-compose logs frontend
-docker-compose logs postgres
-docker-compose logs redis
-docker-compose logs rabbitmq
+
+# Prometheus logs
+docker-compose logs prometheus
+
+# Grafana logs
+docker-compose logs grafana
+
+# All logs
+docker-compose logs
 ```
 
-### Email Testing
+### Reset Monitoring Data
 
-Use the dashboard's email test feature to verify email configuration:
-1. Navigate to the dashboard
-2. Use the email test component
-3. Send test emails to verify SMTP settings
-4. Check email service status endpoint
+To reset monitoring data:
+```bash
+# Stop services
+docker-compose down
+
+# Remove monitoring volumes
+docker volume rm appwithpostgres_prometheus_data appwithpostgres_grafana_data
+
+# Restart services
+docker-compose up -d
+```
+
+## Security Features
+
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcrypt for secure password storage
+- **Rate Limiting**: Protection against brute force attacks
+- **CORS Configuration**: Controlled cross-origin requests
+- **Helmet**: Security headers for Express
+- **Input Validation**: Request validation and sanitization
+
+## Performance Features
+
+- **Redis Caching**: Improved response times for frequently accessed data
+- **Database Indexing**: Optimized queries with GIN indexes for JSONB
+- **File Upload Optimization**: Efficient file handling with size limits
+- **Real-time Updates**: Socket.io for instant data synchronization
+- **Message Queuing**: Asynchronous processing with RabbitMQ
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Add tests if applicable
 5. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details. 
+MIT License - see LICENSE file for details.
+
+## Support
+
+For issues and questions:
+1. Check the troubleshooting section
+2. Review the logs
+3. Create an issue in the repository
+
+---
+
+**Note**: This application is designed for development and testing purposes. For production deployment, ensure proper security configurations, SSL certificates, and environment-specific optimizations. 

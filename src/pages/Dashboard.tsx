@@ -5,6 +5,7 @@ import { useSocket } from '../contexts/SocketContext'
 import FileUpload from '../components/FileUpload'
 import FileSearch from '../components/FileSearch'
 import EmailTest from '../components/EmailTest'
+import MonitoringStatus from '../components/MonitoringStatus'
 
 interface Item {
   id: number
@@ -308,6 +309,12 @@ const Dashboard = () => {
       <div className="card">
         <h2>Email Notification System</h2>
         <EmailTest />
+      </div>
+
+      {/* Monitoring status section */}
+      <div className="card">
+        <h2>System Monitoring</h2>
+        <MonitoringStatus />
       </div>
     </div>
   )

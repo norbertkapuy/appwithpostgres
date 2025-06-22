@@ -12,6 +12,7 @@ fi
 DB_PASSWORD=$(openssl rand -base64 24)
 JWT_SECRET=$(openssl rand -base64 32)
 SESSION_SECRET=$(openssl rand -hex 16)
+GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 16)
 
 # Create .env file
 cat > .env << EOF
@@ -39,6 +40,10 @@ SESSION_SECRET=${SESSION_SECRET}
 # Frontend Configuration
 VITE_API_URL=http://localhost:5000
 VITE_APP_NAME=App with PostgreSQL
+
+# Grafana Configuration
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
 
 # Optional: External Database (for production)
 # Uncomment and modify these if using external PostgreSQL
@@ -110,6 +115,7 @@ echo "🔑 Generated values:"
 echo "   DB_PASSWORD: ${DB_PASSWORD}"
 echo "   JWT_SECRET: ${JWT_SECRET}"
 echo "   SESSION_SECRET: ${SESSION_SECRET}"
+echo "   GRAFANA_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}"
 echo ""
 echo "⚠️  Keep these values secure and never share them!"
 echo "📋 You can now run: docker-compose up -d" 
