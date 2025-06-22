@@ -1,263 +1,254 @@
 # App with PostgreSQL
 
-A modern full-stack web application built with React, Vite, TypeScript, Node.js, Express, and PostgreSQL, all containerized with Docker for easy deployment on cloud VMs.
+A modern full-stack web application built with React, Vite, TypeScript, Node.js, Express, and PostgreSQL, featuring authentication and file upload capabilities.
 
-## 🚀 Features
+## Features
 
-- **Frontend**: Modern React 18 with Vite, TypeScript, and React Query
-- **Backend**: Node.js/Express API with PostgreSQL integration
-- **Database**: PostgreSQL with automatic initialization and sample data
-- **Containerization**: Complete Docker setup with Docker Compose
-- **Modern UI**: Clean, responsive design with dark/light theme support
-- **API Integration**: RESTful API with proper error handling
-- **Development**: Hot reloading and development tools
+- **Frontend**: React 18 with Vite and TypeScript
+- **Backend**: Node.js with Express and TypeScript
+- **Database**: PostgreSQL with connection pooling
+- **Authentication**: JWT-based authentication with bcrypt password hashing
+- **File Upload**: Secure file upload with user-specific storage
+- **Real-time Updates**: Socket.io for instant data synchronization
+- **Caching**: Redis for API response caching
+- **Message Queuing**: RabbitMQ for asynchronous processing
+- **Docker**: Complete containerization with Docker Compose
+- **Security**: Rate limiting, input validation, and secure headers
 
-## 🏗️ Architecture
+## Authentication System
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React App     │    │  Node.js API    │    │   PostgreSQL    │
-│   (Port 80)     │◄──►│   (Port 5000)   │◄──►│   (Port 5432)   │
-│   (Nginx)       │    │   (Express)     │    │   Database      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+The application includes a complete JWT-based authentication system:
 
-## 🛠️ Tech Stack
+- **User Registration**: Secure user registration with email validation
+- **User Login**: Password-based authentication with bcrypt hashing
+- **Protected Routes**: Dashboard and file upload features require authentication
+- **Session Management**: JWT tokens with 24-hour expiration
+- **Rate Limiting**: Protection against brute force attacks
+- **Input Validation**: Comprehensive form validation and sanitization
 
-### Frontend
-- **React 18** - Modern React with hooks
-- **Vite** - Fast build tool and dev server
-- **TypeScript** - Type-safe JavaScript
-- **React Router** - Client-side routing
-- **React Query** - Data fetching and caching
-- **Axios** - HTTP client
+### Authentication Features
 
-### Backend
-- **Node.js** - JavaScript runtime
-- **Express** - Web framework
-- **PostgreSQL** - Relational database
-- **pg** - PostgreSQL client
-- **CORS** - Cross-origin resource sharing
-- **Helmet** - Security headers
+- Password hashing with bcrypt (10 salt rounds)
+- JWT tokens with 24-hour expiration
+- Rate limiting on authentication endpoints (5 attempts per 15 minutes)
+- Email and password validation
+- User-specific data isolation
+- Secure logout functionality
 
-### DevOps
-- **Docker** - Containerization
-- **Docker Compose** - Multi-container orchestration
-- **Nginx** - Reverse proxy and static file serving
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose installed
-- Git
+
+- Docker and Docker Compose
+- Node.js 18+ (for local development)
 
 ### 1. Clone the Repository
+
 ```bash
-git clone https://github.com/norbertkapuy/appwithpostgres.git
+git clone <your-repo-url>
 cd appwithpostgres
 ```
 
-### 2. Start the Application
+### 2. Generate Environment Variables
+
+```bash
+./scripts/generate-env.sh
+```
+
+This creates a `.env` file with secure random values for:
+- Database credentials
+- JWT secret
+- Upload directory
+- File size limits
+
+### 3. Start the Application
+
 ```bash
 docker-compose up -d
 ```
 
-### 3. Access the Application
+The application will be available at:
 - **Frontend**: http://localhost
-- **Backend API**: http://localhost:5000
+- **Backend API**: http://localhost:5001
 - **Database**: localhost:5432
 
-## 📁 Project Structure
+### 4. Access the Application
 
-```
-appwithpostgres/
-├── src/                    # React frontend source
-│   ├── components/         # React components
-│   ├── pages/             # Page components
-│   ├── App.tsx            # Main app component
-│   ├── main.tsx           # Entry point
-│   └── index.css          # Global styles
-├── backend/               # Node.js backend
-│   ├── src/
-│   │   └── index.js       # Express server
-│   ├── package.json       # Backend dependencies
-│   └── Dockerfile         # Backend container
-├── docker-compose.yml     # Multi-container setup
-├── Dockerfile             # Frontend container
-├── nginx.conf             # Nginx configuration
-├── init.sql               # Database initialization
-└── package.json           # Frontend dependencies
-```
+1. Open http://localhost in your browser
+2. Register a new account or login with existing credentials
+3. Access the dashboard for file uploads and data management
 
-## 🔧 Development
+## Development
 
-### Local Development (without Docker)
+### Local Development
+
 ```bash
-# Frontend
+# Install dependencies
 npm install
-npm run dev
+cd backend && npm install
 
-# Backend (in another terminal)
-cd backend
-npm install
-npm run dev
+# Start development servers
+npm run dev          # Frontend (Vite)
+cd backend && npm run dev  # Backend (Nodemon)
 ```
 
-### Docker Development
-```bash
-# Build and start all services
-docker-compose up --build
+### Database Schema
 
-# View logs
-docker-compose logs -f
+The application automatically creates the following tables:
 
-# Stop all services
-docker-compose down
+```sql
+-- Users table for authentication
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Items table for general data
+CREATE TABLE items (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  user_id INTEGER REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Files table for uploaded files
+CREATE TABLE files (
+  id SERIAL PRIMARY KEY,
+  filename VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type VARCHAR(100),
+  user_id INTEGER REFERENCES users(id),
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-## 🌐 API Endpoints
+## API Endpoints
 
-- `GET /api/health` - Health check
-- `GET /api/data` - Get all items
+### Authentication
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user info
+
+### Protected Endpoints (require authentication)
+- `GET /api/data` - Get user's items
 - `POST /api/data` - Create new item
+- `POST /api/upload` - Upload file
+- `GET /api/files` - Get user's files
+- `GET /api/files/:filename` - Download file
+- `GET /api/storage/info` - Get storage information
 
-### Example API Usage
-```bash
-# Get all items
-curl http://localhost:5000/api/data
+### Public Endpoints
+- `GET /api/health` - Health check
+- `GET /api/db-status` - Database connection status
+- `GET /api/cache-status` - Redis cache connection status
+- `GET /api/rabbitmq-status` - RabbitMQ message broker connection status
 
-# Create new item
-curl -X POST http://localhost:5000/api/data \
-  -H "Content-Type: application/json" \
-  -d '{"name": "New Item", "description": "Description"}'
-```
+## Security Features
 
-## 🐳 Docker Commands
+- **Password Security**: bcrypt hashing with 10 salt rounds
+- **JWT Tokens**: Secure token-based authentication
+- **Rate Limiting**: Protection against brute force attacks
+- **Input Validation**: Comprehensive validation using express-validator
+- **CORS**: Configured for secure cross-origin requests
+- **Helmet**: Security headers for Express
+- **File Upload Security**: File type validation and size limits
+- **User Isolation**: Users can only access their own data
 
-```bash
-# Build and start all services
-docker-compose up -d
+## File Upload
 
-# View running containers
-docker-compose ps
+The application supports secure file uploads with the following features:
 
-# View logs
-docker-compose logs -f [service-name]
+- **File Type Validation**: Only allowed file types (images, documents, etc.)
+- **Size Limits**: Configurable maximum file size (default: 10MB)
+- **User Isolation**: Files are associated with specific users
+- **Secure Storage**: Files stored in Docker volumes
+- **Download Protection**: Users can only download their own files
 
-# Stop all services
-docker-compose down
+## Environment Variables
 
-# Rebuild and restart
-docker-compose up --build -d
-
-# Remove volumes (database data)
-docker-compose down -v
-```
-
-## 🔒 Environment Variables
-
-Create a `.env` file in the root directory:
+Key environment variables (auto-generated by `generate-env.sh`):
 
 ```env
 # Database
+DB_USER=postgres
+DB_PASSWORD=<random-password>
+DB_NAME=appwithpostgres
 DB_HOST=postgres
 DB_PORT=5432
-DB_NAME=appwithpostgres
-DB_USER=postgres
-DB_PASSWORD=password
 
-# Backend
+# JWT
+JWT_SECRET=<random-secret>
+
+# File Upload
+UPLOAD_DIR=/app/uploads
+MAX_FILE_SIZE=10485760
+
+# Server
 PORT=5000
-NODE_ENV=production
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+# RabbitMQ
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
 ```
 
-## 🚀 Deployment on Cloud VM
+## Docker Configuration
 
-### 1. Prepare Your VM
-```bash
-# Install Docker and Docker Compose
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
+The application uses Docker Compose with five services:
 
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-```
+- **frontend**: React app served by Nginx
+- **backend**: Node.js/Express API
+- **postgres**: PostgreSQL database
+- **redis**: Redis caching service
+- **rabbitmq**: RabbitMQ message broker
 
-### 2. Deploy the Application
-```bash
-# Clone the repository
-git clone https://github.com/norbertkapuy/appwithpostgres.git
-cd appwithpostgres
+### Volumes
 
-# Start the application
-docker-compose up -d
+- `postgres_data`: Persistent database storage
+- `uploads`: File upload storage
+- `logs`: Application logs
 
-# Check status
-docker-compose ps
-```
-
-### 3. Configure Firewall
-```bash
-# Allow HTTP and HTTPS
-sudo ufw allow 80
-sudo ufw allow 443
-sudo ufw allow 22
-sudo ufw enable
-```
-
-## 📊 Monitoring
-
-### View Application Logs
-```bash
-# All services
-docker-compose logs -f
-
-# Specific service
-docker-compose logs -f frontend
-docker-compose logs -f backend
-docker-compose logs -f postgres
-```
-
-### Database Access
-```bash
-# Connect to PostgreSQL
-docker-compose exec postgres psql -U postgres -d appwithpostgres
-
-# View tables
-\dt
-
-# Query data
-SELECT * FROM items;
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
-1. **Port already in use**: Change ports in `docker-compose.yml`
-2. **Database connection failed**: Check if PostgreSQL container is running
-3. **Build fails**: Ensure Docker has enough memory and disk space
+1. **Port Conflicts**: Ensure ports 80, 5001, and 5432 are available
+2. **Database Connection**: Check if PostgreSQL container is running
+3. **File Uploads**: Verify upload directory permissions
+4. **Authentication**: Clear browser storage if experiencing login issues
 
-### Reset Everything
+### Logs
+
 ```bash
-# Stop and remove everything
-docker-compose down -v
-docker system prune -a
+# View all logs
+docker-compose logs
 
-# Start fresh
-docker-compose up --build -d
-``` 
+# View specific service logs
+docker-compose logs backend
+docker-compose logs frontend
+docker-compose logs postgres
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details. 
