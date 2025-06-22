@@ -14,7 +14,7 @@ A modern full-stack web application built with React, Vite, TypeScript, Node.js,
 - **Caching**: Redis for improved performance and session management
 - **Message Queuing**: RabbitMQ for reliable message processing
 - **Email Notifications**: Nodemailer-based email service with SMTP support
-- **Monitoring**: Prometheus metrics collection and Grafana dashboards
+- **Monitoring**: Prometheus metrics collection and Grafana dashboards with real-time status monitoring
 - **Containerization**: Docker and Docker Compose for easy deployment
 
 ## Authentication System
@@ -224,6 +224,7 @@ Grafana provides beautiful dashboards for visualizing the collected metrics:
 - **Pre-configured Dashboard**: "App with PostgreSQL Dashboard" with comprehensive metrics
 - **Real-time Monitoring**: Auto-refreshing dashboards every 10 seconds
 - **Multiple Panels**: HTTP metrics, user activity, system resources, error rates
+- **Status Monitoring**: Real-time status monitoring for all services
 
 **Access**: http://localhost:3000
 - **Username**: admin
@@ -238,6 +239,26 @@ Grafana provides beautiful dashboards for visualizing the collected metrics:
 - Email delivery statistics
 - RabbitMQ message counts
 - Error rate monitoring
+- Service status indicators
+
+### Real-time Status Monitoring
+
+The application includes a comprehensive status monitoring system that displays real-time status of all services:
+
+- **Prometheus Status**: Connection and scraping status
+- **Grafana Status**: Dashboard availability and health
+- **Backend API Metrics**: Metrics collection status
+- **Database Status**: PostgreSQL connection health
+- **Redis Status**: Cache service availability
+- **RabbitMQ Status**: Message queue health
+- **Email Service Status**: SMTP configuration and connectivity
+
+**Status Endpoints**:
+- `GET /api/grafana-status` - Grafana health check (resolves CORS issues)
+- `GET /api/db-status` - Database connection status
+- `GET /api/cache-status` - Redis connection status
+- `GET /api/rabbitmq-status` - RabbitMQ connection status
+- `GET /api/email/status` - Email service status
 
 ### Metrics Collection
 
@@ -276,6 +297,7 @@ The backend automatically collects metrics for:
 - `GET /api/db-status` - Database connection status
 - `GET /api/cache-status` - Redis connection status
 - `GET /api/rabbitmq-status` - RabbitMQ connection status
+- `GET /api/grafana-status` - Grafana health check (backend proxy)
 - `GET /api/email/status` - Email service status
 - `GET /metrics` - Prometheus metrics endpoint
 
@@ -375,12 +397,17 @@ To add new metrics:
    - Check Prometheus targets: http://localhost:9090/targets
    - Verify datasource configuration in Grafana
 
-3. **Metrics not showing up**
+3. **Grafana status shows as "DOWN" on dashboard**
+   - This was a CORS issue that has been resolved with the new `/api/grafana-status` endpoint
+   - The frontend now uses a backend proxy to check Grafana status
+   - If still showing down, rebuild the frontend: `docker-compose build frontend`
+
+4. **Metrics not showing up**
    - Check backend logs for metric registration errors
    - Verify Prometheus is scraping the correct endpoint
    - Check Grafana datasource configuration
 
-4. **Dashboard not loading**
+5. **Dashboard not loading**
    - Ensure Grafana has access to Prometheus
    - Check dashboard JSON configuration
    - Verify all required metrics are being collected
@@ -416,6 +443,20 @@ docker volume rm appwithpostgres_prometheus_data appwithpostgres_grafana_data
 docker-compose up -d
 ```
 
+### Complete System Reset
+
+To completely reset the entire system (all data, containers, images):
+```bash
+# Stop and remove everything
+docker-compose down -v --remove-orphans
+
+# Remove all images and build cache
+docker system prune -a --volumes -f
+
+# Rebuild everything from scratch
+docker-compose up --build -d
+```
+
 ## Security Features
 
 - **JWT Authentication**: Secure token-based authentication
@@ -433,6 +474,21 @@ docker-compose up -d
 - **Real-time Updates**: Socket.io for instant data synchronization
 - **Message Queuing**: Asynchronous processing with RabbitMQ
 
+## Recent Updates
+
+### Monitoring Improvements (Latest)
+- **Fixed Grafana Status Monitoring**: Resolved CORS issues with new backend proxy endpoint
+- **Enhanced Status Dashboard**: Real-time monitoring of all services
+- **Improved Error Handling**: Better error reporting and troubleshooting
+- **Dashboard Configuration**: Fixed Grafana dashboard JSON format issues
+
+### Previous Updates
+- **JSONB Metadata System**: Advanced file metadata with flexible search
+- **Email Notification System**: Comprehensive email service with templates
+- **Real-time Monitoring**: Prometheus and Grafana integration
+- **Message Queuing**: RabbitMQ integration for async processing
+- **Advanced Caching**: Redis integration for improved performance
+
 ## Contributing
 
 1. Fork the repository
@@ -448,10 +504,7 @@ MIT License - see LICENSE file for details.
 ## Support
 
 For issues and questions:
-1. Check the troubleshooting section
-2. Review the logs
-3. Create an issue in the repository
-
----
-
-**Note**: This application is designed for development and testing purposes. For production deployment, ensure proper security configurations, SSL certificates, and environment-specific optimizations. 
+- Check the troubleshooting section above
+- Review the logs for specific services
+- Ensure all environment variables are properly configured
+- Verify Docker and Docker Compose are up to date 
