@@ -32,7 +32,17 @@ import {
   emailSentTotal, 
   socketConnections, 
   updateSystemMetrics, 
-  updateSocketMetrics 
+  updateSocketMetrics, 
+  updateAnalyticsMetrics,
+  appTotalUsers,
+  appTotalFiles,
+  appTotalStorageUsed,
+  appActiveUsers24h,
+  appActiveUsers7d,
+  appUserRegistrations,
+  appFileUploads,
+  appAvgFileSize,
+  appFilesWithMetadata
 } from './metrics.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -1008,6 +1018,12 @@ app.get('/metrics', async (req, res) => {
     // Update socket metrics
     updateSocketMetrics(io)
     
+    // Update analytics metrics
+    await updateAnalyticsMetrics(pool, redisClient, rabbitmqChannel)
+    
+    // Update analytics metrics from API endpoints
+    await updateAnalyticsFromAPI()
+    
     // Get metrics in Prometheus format
     const metrics = await register.metrics()
     
@@ -1018,6 +1034,60 @@ app.get('/metrics', async (req, res) => {
     res.status(500).json({ error: 'Failed to get metrics' })
   }
 })
+
+// Function to update analytics metrics from API endpoints
+const updateAnalyticsFromAPI = async () => {
+  try {
+    // Get system overview data directly from database
+    const dbStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as new_users_24h,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 END) as new_users_7d
+      FROM users
+    `)
+    
+    const fileStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_files,
+        COUNT(CASE WHEN uploaded_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as new_files_24h,
+        COUNT(CASE WHEN uploaded_at >= NOW() - INTERVAL '7 days' THEN 1 END) as new_files_7d,
+        SUM(file_size) as total_storage_used,
+        AVG(file_size) as avg_file_size
+      FROM files
+    `)
+    
+    // Get active users data
+    const activeUsers = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT user_id) as active_users,
+        COUNT(DISTINCT CASE WHEN uploaded_at >= NOW() - INTERVAL '7 days' THEN user_id END) as active_7d,
+        COUNT(DISTINCT CASE WHEN uploaded_at >= NOW() - INTERVAL '24 hours' THEN user_id END) as active_24h
+      FROM files
+    `)
+    
+    // Get metadata usage data
+    const metadataUsage = await pool.query(`
+      SELECT 
+        COUNT(*) as files_with_metadata,
+        COUNT(CASE WHEN metadata != '{}' THEN 1 END) as files_with_custom_metadata,
+        COUNT(CASE WHEN tags IS NOT NULL AND array_length(tags, 1) > 0 THEN 1 END) as files_with_tags
+      FROM files
+    `)
+    
+    // Update metrics
+    appTotalUsers.set(parseInt(dbStats.rows[0].total_users))
+    appTotalFiles.set(parseInt(fileStats.rows[0].total_files))
+    appTotalStorageUsed.set(parseInt(fileStats.rows[0].total_storage_used || 0))
+    appActiveUsers24h.set(parseInt(activeUsers.rows[0].active_24h))
+    appActiveUsers7d.set(parseInt(activeUsers.rows[0].active_7d))
+    appAvgFileSize.set(parseInt(fileStats.rows[0].avg_file_size || 0))
+    appFilesWithMetadata.set(parseInt(metadataUsage.rows[0].files_with_custom_metadata))
+    
+  } catch (error) {
+    console.error('Error updating analytics from API:', error)
+  }
+}
 
 // ===== NEW COMPREHENSIVE API ENDPOINTS =====
 
@@ -1513,4 +1583,14 @@ server.listen(PORT, () => {
   console.log(`Socket.io server ready for real-time updates`)
   console.log(`Upload directory: ${UPLOAD_DIR}`)
   console.log(`Max file size: ${MAX_FILE_SIZE} bytes`)
+  
+  // Start periodic analytics metrics update
+  setInterval(async () => {
+    try {
+      await updateAnalyticsMetrics(pool, redisClient, rabbitmqChannel)
+      await updateAnalyticsFromAPI()
+    } catch (error) {
+      console.error('Periodic analytics update error:', error)
+    }
+  }, 30000) // Update every 30 seconds
 }) 
