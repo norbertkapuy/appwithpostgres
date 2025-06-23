@@ -20,21 +20,19 @@ scrape_configs:
     scrape_interval: 10s
     scrape_timeout: 5s
 
-  # PostgreSQL (if you want to monitor the database directly)
+  # PostgreSQL Exporter
   - job_name: 'postgres'
     static_configs:
-      - targets: ['postgres:5432']
-    # Note: This would require a PostgreSQL exporter
+      - targets: ['postgres_exporter:9187']
 
-  # Redis (if you want to monitor Redis directly)
+  # Redis Exporter
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
-    # Note: This would require a Redis exporter
+      - targets: ['redis_exporter:9121']
 
-  # RabbitMQ (if you want to monitor RabbitMQ directly)
+  # RabbitMQ Exporter
   - job_name: 'rabbitmq'
     static_configs:
-      - targets: ['rabbitmq:15672']
+      - targets: ['rabbitmq_exporter:9419']
     metrics_path: '/metrics'
     # Note: This would require a RabbitMQ exporter 
