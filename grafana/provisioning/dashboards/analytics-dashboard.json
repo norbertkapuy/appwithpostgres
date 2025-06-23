@@ -656,6 +656,195 @@
         }
       },
       "gridPos": {"h": 4, "w": 6, "x": 18, "y": 33}
+    },
+    {
+      "id": 21,
+      "title": "PgBouncer Connection Pooling",
+      "type": "row",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 37},
+      "collapsed": false
+    },
+    {
+      "id": 22,
+      "title": "Active Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "pgbouncer_active_connections",
+          "legendFormat": "Active Connections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "displayMode": "gradient-gauge"
+          },
+          "mappings": [],
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 15},
+              {"color": "red", "value": 18}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 38}
+    },
+    {
+      "id": 23,
+      "title": "Waiting Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "pgbouncer_waiting_connections",
+          "legendFormat": "Waiting Connections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "displayMode": "gradient-gauge"
+          },
+          "mappings": [],
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 10}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 38}
+    },
+    {
+      "id": 24,
+      "title": "Idle Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "pgbouncer_idle_connections",
+          "legendFormat": "Idle Connections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "displayMode": "gradient-gauge"
+          },
+          "mappings": [],
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 80}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 38}
+    },
+    {
+      "id": 25,
+      "title": "Max Wait Time (ms)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "pgbouncer_max_wait",
+          "legendFormat": "Max Wait Time (ms)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "displayMode": "gradient-gauge"
+          },
+          "mappings": [],
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 100},
+              {"color": "red", "value": 500}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 38}
+    },
+    {
+      "id": 26,
+      "title": "Connection Pool Status",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "pgbouncer_active_connections",
+          "legendFormat": "Active"
+        },
+        {
+          "expr": "pgbouncer_waiting_connections",
+          "legendFormat": "Waiting"
+        },
+        {
+          "expr": "pgbouncer_idle_connections",
+          "legendFormat": "Idle"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 80}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 42}
     }
   ],
   "time": {

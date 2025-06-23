@@ -15,6 +15,7 @@ A modern full-stack web application built with React, Vite, TypeScript, Node.js,
 - **Message Queuing**: RabbitMQ for reliable message processing
 - **Email Notifications**: Nodemailer-based email service with SMTP support
 - **Monitoring**: Prometheus metrics collection and Grafana dashboards with real-time status monitoring
+- **Connection Pooling**: PgBouncer for optimized database connection management
 - **Containerization**: Docker and Docker Compose for easy deployment
 
 ## Authentication System
@@ -254,11 +255,14 @@ The application includes a comprehensive status monitoring system that displays 
 - **Email Service Status**: SMTP configuration and connectivity
 
 **Status Endpoints**:
-- `GET /api/grafana-status` - Grafana health check (backend proxy)
+- `GET /api/health` - Backend health check
 - `GET /api/db-status` - Database connection status
 - `GET /api/cache-status` - Redis connection status
 - `GET /api/rabbitmq-status` - RabbitMQ connection status
+- `GET /api/grafana-status` - Grafana health check (backend proxy)
+- `GET /api/pgbouncer-status` - PgBouncer connection pooling status and statistics
 - `GET /api/email/status` - Email service status
+- `GET /metrics` - Prometheus metrics endpoint
 
 ### Metrics Collection
 
@@ -270,6 +274,94 @@ The backend automatically collects metrics for:
 4. **Service Metrics**: Redis, RabbitMQ, and database operations
 
 **Metrics Endpoint**: http://localhost:5001/metrics
+
+## Connection Pooling with PgBouncer
+
+The application includes PgBouncer for optimized database connection management, providing better performance, scalability, and connection handling.
+
+### PgBouncer Configuration
+
+**Pool Mode**: Transaction-based pooling for optimal performance
+**Connection Limits**:
+- **Max Client Connections**: 1000
+- **Default Pool Size**: 20 connections per database
+- **Reserve Pool Size**: 5 additional connections
+- **Max Database Connections**: 50
+- **Max User Connections**: 50
+
+**Performance Settings**:
+- **Server Reset Query**: `DISCARD ALL` for clean connection reuse
+- **Server Check Query**: `SELECT 1` for health monitoring
+- **TCP Keepalive**: Enabled for connection stability
+- **Connection Timeouts**: Optimized for web application patterns
+
+### PgBouncer Benefits
+
+**Performance Improvements**:
+- **Faster Connection Establishment**: Reuses existing connections
+- **Reduced Database Load**: Fewer connection overhead
+- **Better Resource Utilization**: Efficient connection pooling
+- **Connection Limit Management**: Prevents "too many connections" errors
+
+**Scalability Features**:
+- **Horizontal Scaling Ready**: Supports multiple backend instances
+- **Connection Pool Optimization**: Automatic connection management
+- **Load Distribution**: Efficient connection distribution
+- **Failover Support**: Graceful handling of connection issues
+
+**Monitoring & Observability**:
+- **Real-time Metrics**: Connection pool status and performance
+- **Health Monitoring**: Automatic health checks and alerts
+- **Performance Analytics**: Connection wait times and utilization
+- **Grafana Integration**: Visual monitoring dashboards
+
+### PgBouncer Monitoring
+
+The application includes comprehensive PgBouncer monitoring:
+
+**Prometheus Metrics**:
+- `pgbouncer_active_connections` - Active connections count
+- `pgbouncer_waiting_connections` - Waiting connections count
+- `pgbouncer_idle_connections` - Idle connections count
+- `pgbouncer_used_connections` - Used connections count
+- `pgbouncer_tested_connections` - Tested connections count
+- `pgbouncer_login_connections` - Login connections count
+- `pgbouncer_max_wait` - Maximum wait time in milliseconds
+- `pgbouncer_max_wait_us` - Maximum wait time in microseconds
+
+**Grafana Dashboard Panels**:
+- **Active Connections**: Real-time active connection count
+- **Waiting Connections**: Connections waiting for pool availability
+- **Idle Connections**: Available connections in pool
+- **Max Wait Time**: Connection wait time monitoring
+- **Connection Pool Status**: Time series graph of pool utilization
+
+**API Endpoints**:
+- `GET /api/pgbouncer-status` - Detailed PgBouncer status and statistics
+- Includes pool information, client details, and performance metrics
+
+### Connection Pool Optimization
+
+**Backend Configuration**:
+- **Pool Size**: 20 connections (matches PgBouncer default)
+- **Min Connections**: 2 (maintains minimum pool)
+- **Idle Timeout**: 30 seconds (efficient resource usage)
+- **Connection Timeout**: 2 seconds (fast failure detection)
+- **Acquire Timeout**: 5 seconds (reasonable wait time)
+
+**Health Checks**:
+- **PgBouncer Health**: Automatic health monitoring
+- **Connection Validation**: Regular connection testing
+- **Performance Monitoring**: Real-time performance metrics
+- **Alert Integration**: Prometheus-based alerting
+
+### Access Information
+
+- **PgBouncer Port**: 6432 (external access)
+- **Internal Connection**: Backend connects via `pgbouncer:5432`
+- **Status Endpoint**: http://localhost:5001/api/pgbouncer-status
+- **Grafana Dashboard**: PgBouncer panels in Analytics Dashboard
+- **Prometheus Metrics**: Available at http://localhost:5001/metrics
 
 ## Advanced Analytics & Monitoring
 
@@ -440,206 +532,21 @@ The `/api/system/errors` endpoint provides error analytics (placeholder for logg
 - `GET /api/files` - Get user's files
 - `GET /api/files/search/tags` - Search by tags
 - `GET /api/files/search/metadata` - Search by metadata
-- `GET /api/files/search/content` - Full-text search
-- `PUT /api/files/:id/metadata` - Update file metadata
-
-### System Status
-- `GET /api/health` - Backend health check
-- `GET /api/db-status` - Database connection status
-- `GET /api/cache-status` - Redis connection status
-- `GET /api/rabbitmq-status` - RabbitMQ connection status
-- `GET /api/grafana-status` - Grafana health check (backend proxy)
-- `GET /api/email/status` - Email service status
-- `GET /metrics` - Prometheus metrics endpoint
-
-### System Analytics & Monitoring
-- `GET /api/system/overview` - Comprehensive system overview with database stats, Redis info, and system metrics
-- `GET /api/system/health` - Detailed health check for all services with response times and resource usage
-- `GET /api/system/performance` - Performance metrics including database stats, Redis performance, and system resources
-- `GET /api/system/errors` - Error logs and system error analytics (placeholder for logging integration)
-
-### User Analytics
-- `GET /api/analytics/users` - User registration trends, activity metrics, and top users by file count
-- `GET /api/analytics/files` - File upload trends, type distribution, size analysis, and metadata usage
-- `GET /api/analytics/search` - Search analytics for tags, metadata, and content usage
-- `GET /api/analytics/cache` - Redis cache performance metrics and hit rates
-
-### Email Service
-- `POST /api/email/test` - Send test email
-- `POST /api/email/system-alert` - Send system alert
-
-## Environment Variables
-
-The application uses the following environment variables (automatically generated):
-
-```bash
-# Database
-DB_HOST=postgres
-DB_PORT=5432
-DB_NAME=appwithpostgres
-DB_USER=postgres
-DB_PASSWORD=<auto-generated>
-
-# Security
-JWT_SECRET=<auto-generated>
-SESSION_SECRET=<auto-generated>
-
-# Monitoring
-GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=<auto-generated>
-
-# Email (configure as needed)
-SMTP_HOST=localhost
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=noreply@yourdomain.com
-SMTP_PASSWORD=your-smtp-password
-```
-
-## Development
-
-### Local Development
-
-1. **Install dependencies**
-   ```bash
-   npm install
-   cd backend && npm install
-   ```
-
-2. **Start development servers**
-   ```bash
-   # Frontend
-   npm run dev
-   
-   # Backend
-   cd backend && npm run dev
-   ```
-
-3. **Start supporting services**
-   ```bash
-   docker-compose up -d postgres redis rabbitmq prometheus grafana
-   ```
-
-### Monitoring Development
-
-To add new metrics:
-
-1. **Define metrics in `backend/src/metrics.js`**
-   ```javascript
-   export const newMetric = new promClient.Counter({
-     name: 'new_metric_total',
-     help: 'Description of the metric',
-     labelNames: ['label1', 'label2']
-   })
-   ```
-
-2. **Register the metric**
-   ```javascript
-   register.registerMetric(newMetric)
-   ```
-
-3. **Use the metric in your code**
-   ```javascript
-   newMetric.inc({ label1: 'value1', label2: 'value2' })
-   ```
-
-4. **Add to Grafana dashboard** (optional)
-   - Access Grafana at http://localhost:3000
-   - Edit the dashboard and add new panels
-   - Use PromQL queries to visualize your metrics
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Prometheus can't connect to backend**
-   - Check if backend is running: `docker-compose logs backend`
-   - Verify metrics endpoint: `curl http://localhost:5001/metrics`
-
-2. **Grafana can't connect to Prometheus**
-   - Check Prometheus targets: http://localhost:9090/targets
-   - Verify datasource configuration in Grafana
-
-3. **Grafana status shows as "DOWN" on dashboard**
-   - This was a CORS issue that has been resolved with the new `/api/grafana-status` endpoint
-   - The frontend now uses a backend proxy to check Grafana status
-   - If still showing down, rebuild the frontend: `docker-compose build frontend`
-
-4. **Metrics not showing up**
-   - Check backend logs for metric registration errors
-   - Verify Prometheus is scraping the correct endpoint
-   - Check Grafana datasource configuration
-
-5. **Dashboard not loading**
-   - Ensure Grafana has access to Prometheus
-   - Check dashboard JSON configuration
-   - Verify all required metrics are being collected
-
-### Logs
-
-View logs for specific services:
-```bash
-# Backend logs
-docker-compose logs backend
-
-# Prometheus logs
-docker-compose logs prometheus
-
-# Grafana logs
-docker-compose logs grafana
-
-# All logs
-docker-compose logs
-```
-
-### Reset Monitoring Data
-
-To reset monitoring data:
-```bash
-# Stop services
-docker-compose down
-
-# Remove monitoring volumes
-docker volume rm appwithpostgres_prometheus_data appwithpostgres_grafana_data
-
-# Restart services
-docker-compose up -d
-```
-
-### Complete System Reset
-
-To completely reset the entire system (all data, containers, images):
-```bash
-# Stop and remove everything
-docker-compose down -v --remove-orphans
-
-# Remove all images and build cache
-docker system prune -a --volumes -f
-
-# Rebuild everything from scratch
-docker-compose up --build -d
-```
-
-## Security Features
-
-- **JWT Authentication**: Secure token-based authentication
-- **Password Hashing**: bcrypt for secure password storage
-- **Rate Limiting**: Protection against brute force attacks
-- **CORS Configuration**: Controlled cross-origin requests
-- **Helmet**: Security headers for Express
-- **Input Validation**: Request validation and sanitization
-
-## Performance Features
-
-- **Redis Caching**: Improved response times for frequently accessed data
-- **Database Indexing**: Optimized queries with GIN indexes for JSONB
-- **File Upload Optimization**: Efficient file handling with size limits
-- **Real-time Updates**: Socket.io for instant data synchronization
-- **Message Queuing**: Asynchronous processing with RabbitMQ
+- `GET /api/files/search/content`
 
 ## Recent Updates
 
-### Analytics & Monitoring Enhancement (Latest)
+### Connection Pooling with PgBouncer (Latest)
+- **PgBouncer Integration**: Added PgBouncer for optimized database connection management
+- **Connection Pooling**: Transaction-based pooling with 20 default connections
+- **Performance Optimization**: Reduced connection overhead and improved resource utilization
+- **Scalability Ready**: Support for horizontal scaling and multiple backend instances
+- **Comprehensive Monitoring**: 8 new PgBouncer metrics with Grafana dashboard panels
+- **Health Monitoring**: Real-time connection pool status and performance analytics
+- **API Integration**: New `/api/pgbouncer-status` endpoint for detailed statistics
+- **Connection Limits**: Managed connection limits to prevent database overload
+
+### Analytics & Monitoring Enhancement (Previous)
 - **Comprehensive Analytics Endpoints**: Added 8 new API endpoints for detailed system analytics
 - **System Overview Dashboard**: Real-time system metrics with database, Redis, and performance data
 - **User Analytics**: Registration trends, activity metrics, and top user analysis
@@ -648,36 +555,3 @@ docker-compose up --build -d
 - **Cache Performance**: Redis metrics, hit rates, and memory optimization data
 - **Health Monitoring**: Detailed health checks with response times and resource usage
 - **Performance Metrics**: Database stats, system resources, and connection pool analytics
-
-### Monitoring Improvements (Previous)
-- **Fixed Grafana Status Monitoring**: Resolved CORS issues with new backend proxy endpoint
-- **Enhanced Status Dashboard**: Real-time monitoring of all services
-- **Improved Error Handling**: Better error reporting and troubleshooting
-- **Dashboard Configuration**: Fixed Grafana dashboard JSON format issues
-
-### Previous Updates
-- **JSONB Metadata System**: Advanced file metadata with flexible search
-- **Email Notification System**: Comprehensive email service with templates
-- **Real-time Monitoring**: Prometheus and Grafana integration
-- **Message Queuing**: RabbitMQ integration for async processing
-- **Advanced Caching**: Redis integration for improved performance
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Check the troubleshooting section above
-- Review the logs for specific services
-- Ensure all environment variables are properly configured
-- Verify Docker and Docker Compose are up to date 

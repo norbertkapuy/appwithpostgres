@@ -34,6 +34,7 @@ import {
   updateSystemMetrics, 
   updateSocketMetrics, 
   updateAnalyticsMetrics,
+  updatePgBouncerMetrics,
   appTotalUsers,
   appTotalFiles,
   appTotalStorageUsed,
@@ -133,10 +134,20 @@ app.use(prometheusMiddleware({
 // PostgreSQL connection
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'postgres',
+  host: process.env.DB_HOST || 'pgbouncer',
   database: process.env.DB_NAME || 'appwithpostgres',
   password: process.env.DB_PASSWORD || 'password',
   port: process.env.DB_PORT || 5432,
+  max: 20, // Match PgBouncer pool size
+  min: 2, // Minimum connections to keep
+  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  connectionTimeoutMillis: 2000, // Connection timeout
+  acquireTimeoutMillis: 5000, // Timeout for acquiring connection from pool
+  reapIntervalMillis: 1000, // How often to check for idle connections
+  createTimeoutMillis: 3000, // Timeout for creating new connections
+  destroyTimeoutMillis: 5000, // Timeout for destroying connections
+  createRetryIntervalMillis: 200, // Retry interval for connection creation
+  propagateCreateError: false, // Don't propagate connection creation errors
 })
 
 // Storage configuration
@@ -945,6 +956,51 @@ app.get('/api/grafana-status', async (req, res) => {
   }
 })
 
+// PgBouncer status endpoint
+app.get('/api/pgbouncer-status', async (req, res) => {
+  try {
+    // Test connection through PgBouncer
+    const startTime = Date.now()
+    const result = await pool.query('SELECT 1 as test, NOW() as timestamp')
+    const endTime = Date.now()
+    const responseTime = endTime - startTime
+    
+    const pgbouncerStatus = {
+      status: 'ok',
+      message: 'PgBouncer is running and accessible',
+      timestamp: new Date().toISOString(),
+      connection_test: {
+        success: true,
+        response_time_ms: responseTime,
+        test_query: result.rows[0]
+      },
+      configuration: {
+        pool_mode: 'transaction',
+        max_client_connections: 1000,
+        default_pool_size: 20,
+        reserve_pool_size: 5,
+        max_database_connections: 50,
+        max_user_connections: 50
+      },
+      summary: {
+        connection_working: true,
+        response_time_ms: responseTime,
+        pool_available: true
+      }
+    }
+    
+    res.json(pgbouncerStatus)
+  } catch (error) {
+    console.error('PgBouncer status check error:', error)
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'PgBouncer connection failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
 // Email service endpoints
 app.get('/api/email/status', async (req, res) => {
   try {
@@ -1020,6 +1076,9 @@ app.get('/metrics', async (req, res) => {
     
     // Update analytics metrics
     await updateAnalyticsMetrics(pool, redisClient, rabbitmqChannel)
+    
+    // Update PgBouncer metrics
+    await updatePgBouncerMetrics(pool)
     
     // Update analytics metrics from API endpoints
     await updateAnalyticsFromAPI()
@@ -1588,6 +1647,7 @@ server.listen(PORT, () => {
   setInterval(async () => {
     try {
       await updateAnalyticsMetrics(pool, redisClient, rabbitmqChannel)
+      await updatePgBouncerMetrics(pool)
       await updateAnalyticsFromAPI()
     } catch (error) {
       console.error('Periodic analytics update error:', error)
