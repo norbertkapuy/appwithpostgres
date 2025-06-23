@@ -15,6 +15,9 @@ A modern full-stack web application built with React, Vite, TypeScript, Node.js,
 - **Message Queuing**: RabbitMQ for reliable message processing
 - **Email Notifications**: Nodemailer-based email service with SMTP support
 - **Monitoring**: Prometheus metrics collection and Grafana dashboards with real-time status monitoring
+- **Database Monitoring**: PostgreSQL exporter for detailed database metrics
+- **Cache Monitoring**: Redis exporter for cache performance insights
+- **Queue Monitoring**: RabbitMQ exporter for message queue analytics
 - **Connection Pooling**: PgBouncer for optimized database connection management
 - **Containerization**: Docker and Docker Compose for easy deployment
 
@@ -192,6 +195,9 @@ CREATE INDEX idx_files_content ON files USING GIN (to_tsvector('english', conten
    - **Grafana**: http://localhost:3000 (admin/admin)
    - **RabbitMQ Management**: http://localhost:15672 (guest/guest)
    - **PostgreSQL**: localhost:5432
+   - **PostgreSQL Exporter**: http://localhost:9187
+   - **Redis Exporter**: http://localhost:9121
+   - **RabbitMQ Exporter**: http://localhost:9419
 
 ## Monitoring Stack
 
@@ -203,6 +209,9 @@ Prometheus is configured to collect metrics from the backend API and provides:
 - **Custom Application Metrics**: User registrations, logins, file uploads, email sends
 - **System Metrics**: Memory usage, CPU usage, Socket.io connections
 - **Service Metrics**: Redis operations, RabbitMQ messages, database query durations
+- **Database Metrics**: PostgreSQL performance, connections, and query statistics
+- **Cache Metrics**: Redis memory usage, hit rates, and operation counts
+- **Queue Metrics**: RabbitMQ message throughput, queue depths, and consumer status
 
 **Access**: http://localhost:9090
 
@@ -217,12 +226,21 @@ Prometheus is configured to collect metrics from the backend API and provides:
 - `system_memory_usage_bytes` - Memory usage by type
 - `rabbitmq_messages_total` - RabbitMQ message counts
 - `redis_operations_total` - Redis operation counts
+- `pg_up` - PostgreSQL availability status
+- `pg_stat_database_*` - Database statistics and performance
+- `redis_up` - Redis availability status
+- `redis_memory_*` - Redis memory usage metrics
+- `rabbitmq_up` - RabbitMQ availability status
+- `rabbitmq_queue_*` - Queue depth and message rates
 
 ### Grafana
 
 Grafana provides beautiful dashboards for visualizing the collected metrics:
 
 - **Pre-configured Dashboard**: "App with PostgreSQL Dashboard" with comprehensive metrics
+- **PostgreSQL Dashboard**: Detailed database performance and health monitoring
+- **Redis Dashboard**: Cache performance, memory usage, and operation analytics
+- **RabbitMQ Dashboard**: Message queue throughput, consumer status, and queue health
 - **Real-time Monitoring**: Auto-refreshing dashboards every 10 seconds
 - **Multiple Panels**: HTTP metrics, user activity, system resources, error rates
 - **Status Monitoring**: Real-time status monitoring for all services
@@ -232,6 +250,8 @@ Grafana provides beautiful dashboards for visualizing the collected metrics:
 - **Password**: Generated automatically (check the output of `generate-env.sh`)
 
 **Dashboard Features**:
+
+**Main App Dashboard**:
 - HTTP Request Rate and Duration graphs
 - User registration and login statistics
 - File upload tracking
@@ -241,6 +261,58 @@ Grafana provides beautiful dashboards for visualizing the collected metrics:
 - RabbitMQ message counts
 - Error rate monitoring
 - Service status indicators
+
+**PostgreSQL Dashboard**:
+- Database connections and active sessions
+- Query performance and execution times
+- Transaction rates and commit/rollback statistics
+- Table and index usage statistics
+- Buffer cache hit rates and efficiency
+- Lock monitoring and deadlock detection
+- Database size and growth tracking
+- Connection pool utilization
+
+**Redis Dashboard**:
+- Memory usage and peak memory tracking
+- Command processing rates and latency
+- Connected clients and connection statistics
+- Keyspace efficiency and key counts
+- Cache hit rates and miss patterns
+- Network I/O and bandwidth usage
+- Redis version and uptime information
+- Performance optimization insights
+
+**RabbitMQ Dashboard**:
+- Message publishing and consumption rates
+- Queue depths and message flow
+- Consumer status and connection health
+- Exchange and binding statistics
+- Channel and connection monitoring
+- Message acknowledgment rates
+- Queue performance metrics
+- Error rates and failed deliveries
+
+### Monitoring Exporters
+
+The application includes dedicated monitoring exporters for comprehensive service visibility:
+
+**PostgreSQL Exporter**:
+- **Port**: 9187
+- **Metrics**: Database connections, query performance, table statistics
+- **Health Check**: http://localhost:9187/metrics
+- **Key Metrics**: `pg_up`, `pg_stat_database_*`, `pg_stat_activity_*`
+
+**Redis Exporter**:
+- **Port**: 9121
+- **Metrics**: Memory usage, command rates, connection statistics
+- **Health Check**: http://localhost:9121/metrics
+- **Key Metrics**: `redis_up`, `redis_memory_*`, `redis_commands_*`
+
+**RabbitMQ Exporter**:
+- **Port**: 9419
+- **Metrics**: Queue depths, message rates, consumer status
+- **Health Check**: http://localhost:9419/metrics
+- **Key Metrics**: `rabbitmq_up`, `rabbitmq_queue_*`, `rabbitmq_exchange_*`
 
 ### Real-time Status Monitoring
 
@@ -253,6 +325,9 @@ The application includes a comprehensive status monitoring system that displays 
 - **Redis Status**: Cache service availability
 - **RabbitMQ Status**: Message queue health
 - **Email Service Status**: SMTP configuration and connectivity
+- **PostgreSQL Exporter Status**: Database metrics collection
+- **Redis Exporter Status**: Cache metrics collection
+- **RabbitMQ Exporter Status**: Queue metrics collection
 
 **Status Endpoints**:
 - `GET /api/health` - Backend health check
@@ -272,6 +347,9 @@ The backend automatically collects metrics for:
 2. **Custom Business Metrics**: User actions, file operations, email sends
 3. **System Metrics**: Memory usage, Socket.io connections
 4. **Service Metrics**: Redis, RabbitMQ, and database operations
+5. **Database Metrics**: PostgreSQL performance via postgres_exporter
+6. **Cache Metrics**: Redis performance via redis_exporter
+7. **Queue Metrics**: RabbitMQ performance via rabbitmq_exporter
 
 **Metrics Endpoint**: http://localhost:5001/metrics
 
@@ -536,7 +614,18 @@ The `/api/system/errors` endpoint provides error analytics (placeholder for logg
 
 ## Recent Updates
 
-### Connection Pooling with PgBouncer (Latest)
+### Comprehensive Monitoring Exporters (Latest)
+- **PostgreSQL Exporter**: Added dedicated PostgreSQL monitoring with detailed database metrics
+- **Redis Exporter**: Added Redis cache monitoring with memory and performance analytics
+- **RabbitMQ Exporter**: Added RabbitMQ queue monitoring with message flow and consumer metrics
+- **Enhanced Prometheus Configuration**: Updated to scrape all exporter targets automatically
+- **Dedicated Grafana Dashboards**: Created specialized dashboards for PostgreSQL, Redis, and RabbitMQ
+- **Comprehensive Metrics**: Database connections, query performance, cache hit rates, queue depths
+- **Real-time Monitoring**: Auto-refreshing dashboards with 10-second intervals
+- **Health Monitoring**: Individual exporter status and connectivity checks
+- **Performance Analytics**: Detailed performance insights for each service component
+
+### Connection Pooling with PgBouncer (Previous)
 - **PgBouncer Integration**: Added PgBouncer for optimized database connection management
 - **Connection Pooling**: Transaction-based pooling with 20 default connections
 - **Performance Optimization**: Reduced connection overhead and improved resource utilization
