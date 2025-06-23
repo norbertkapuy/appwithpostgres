@@ -21,6 +21,10 @@ import { authenticateToken, validateRegistration, validateLogin, authRateLimit }
 import emailService from './emailService.js'
 import prometheusMiddleware from 'express-prometheus-middleware'
 import fetch from 'node-fetch'
+import compression from 'compression'
+import slowDown from 'express-slow-down'
+import mongoSanitize from 'express-mongo-sanitize'
+import xss from 'express-xss'
 import { 
   register, 
   fileUploadsTotal, 
@@ -115,10 +119,59 @@ connectRabbitMQ()
 
 // Middleware
 app.set('trust proxy', 1) // Trust first proxy
-app.use(helmet())
-app.use(cors())
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}))
+
+// Compression middleware
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false
+    }
+    return compression.filter(req, res)
+  },
+  level: 6,
+  threshold: 1024
+}))
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost",
+  credentials: true,
+  optionsSuccessStatus: 200
+}))
+
 app.use(morgan('combined'))
-app.use(express.json())
+
+// Request parsing and sanitization
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+app.use(mongoSanitize())
+app.use(xss())
+
+// Rate limiting middleware
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 100, // Allow 100 requests per windowMs without delay
+  delayMs: 100, // Add 100ms delay per request after delayAfter
+  maxDelayMs: 20000, // Maximum delay of 20 seconds
+})
+
+app.use(speedLimiter)
 
 // Prometheus middleware for metrics collection
 app.use(prometheusMiddleware({
@@ -1637,14 +1690,71 @@ app.get('/api/system/errors', authenticateToken, async (req, res) => {
   }
 })
 
-server.listen(PORT, () => {
+// Graceful shutdown handling
+const gracefulShutdown = async (signal) => {
+  console.log(`\nReceived ${signal}. Starting graceful shutdown...`)
+  
+  // Stop accepting new connections
+  server.close(async () => {
+    console.log('HTTP server closed.')
+    
+    try {
+      // Close database connections
+      await pool.end()
+      console.log('Database connections closed.')
+      
+      // Close Redis connection
+      redisClient.disconnect()
+      console.log('Redis connection closed.')
+      
+      // Close RabbitMQ connection
+      if (rabbitmqChannel) {
+        await rabbitmqChannel.close()
+      }
+      if (rabbitmqConnection) {
+        await rabbitmqConnection.close()
+      }
+      console.log('RabbitMQ connections closed.')
+      
+      console.log('Graceful shutdown completed.')
+      process.exit(0)
+    } catch (error) {
+      console.error('Error during shutdown:', error)
+      process.exit(1)
+    }
+  })
+  
+  // Force exit after 30 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout')
+    process.exit(1)
+  }, 30000)
+}
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error)
+  gracefulShutdown('UNCAUGHT_EXCEPTION')
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  gracefulShutdown('UNHANDLED_REJECTION')
+})
+
+const httpServer = server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   console.log(`Socket.io server ready for real-time updates`)
   console.log(`Upload directory: ${UPLOAD_DIR}`)
   console.log(`Max file size: ${MAX_FILE_SIZE} bytes`)
+  console.log(`Process ID: ${process.pid}`)
   
   // Start periodic analytics metrics update
-  setInterval(async () => {
+  const analyticsInterval = setInterval(async () => {
     try {
       await updateAnalyticsMetrics(pool, redisClient, rabbitmqChannel)
       await updatePgBouncerMetrics(pool)
@@ -1653,4 +1763,9 @@ server.listen(PORT, () => {
       console.error('Periodic analytics update error:', error)
     }
   }, 30000) // Update every 30 seconds
+  
+  // Clear interval on server close
+  server.on('close', () => {
+    clearInterval(analyticsInterval)
+  })
 }) 

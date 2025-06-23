@@ -7,34 +7,44 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"No build step required for Node.js\"",
+    "health": "node -e \"import('node-fetch').then(m => m.default('http://localhost:5000/api/health').then(r => process.exit(r.ok ? 0 : 1)))\""
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
-    "pg": "^8.11.0",
-    "helmet": "^7.0.0",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "helmet": "^7.1.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "fs-extra": "^11.1.1",
+    "fs-extra": "^11.2.0",
     "path": "^0.12.7",
-    "bcrypt": "^5.1.0",
-    "jsonwebtoken": "^9.0.0",
-    "express-rate-limit": "^6.10.0",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
-    "socket.io": "^4.7.2",
-    "ioredis": "^5.4.1",
+    "socket.io": "^4.7.4",
+    "ioredis": "^5.3.2",
     "amqplib": "^0.10.3",
-    "nodemailer": "^6.9.4",
-    "prom-client": "^13.2.0",
+    "nodemailer": "^6.9.7",
+    "prom-client": "^15.0.0",
     "express-prometheus-middleware": "^1.2.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "compression": "^1.7.4",
+    "express-slow-down": "^2.0.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-xss": "^0.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.0.2"
   },
-  "keywords": ["express", "postgresql", "api"],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": ["express", "postgresql", "api", "microservice", "monitoring"],
   "author": "",
   "license": "MIT"
 } 
